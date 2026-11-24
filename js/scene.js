@@ -108,6 +108,18 @@ function fitText(ctx, text, cx, top, maxW, maxH, { size = 64, min = 26, weight =
   return lines.length * s * lh;
 }
 
+// alçada que ocuparà un text amb fitText (sense dibuixar-lo)
+function measureFit(ctx, text, maxW, maxH, { size = 64, min = 34, weight = 800, stretch = 'condensed', lh = 1.04, maxLines = 3 } = {}) {
+  let s = size;
+  let lines;
+  for (; s >= min; s -= 2) {
+    setFont(ctx, weight, s, stretch);
+    lines = wrap(ctx, text, maxW);
+    if (lines.length <= maxLines && lines.length * s * lh <= maxH && lines.every((l) => ctx.measureText(l).width <= maxW)) break;
+  }
+  return lines.length * s * lh;
+}
+
 function drawTrain(ctx, cx, cy, s) {
   // frontal d'un tren, dibuixat
   ctx.save();
@@ -463,40 +475,40 @@ export function drawBoard(canvas) {
       else if (r.side === 'l') { band = [x + w - b, y, b, h]; body = [x, y, w - b, h]; }
       else { band = [x, y, b, h]; body = [x + b, y, w - b, h]; }
       const [bx, by, bw, bh] = body;
-      const pad = 26;
-      const priceH = 86;
+      const wide = r.side === 'l' || r.side === 'r';
+      const pad = 24;
+      const priceH = 92;
+      const cx = bx + bw / 2; // tot centrat a l'amplada de la casella (sense la franja)
       // a la part exterior hi va el preu (i la placa de l'amo, en 3D)
-      const nameTop = r.side === 't' ? by + priceH + pad : by + pad;
-      const priceY = r.side === 't' ? by + pad + 8 : by + bh - priceH + 8;
+      const top = r.side === 't' ? by + priceH + pad * 0.5 : by + pad;
+      const priceY = r.side === 't' ? by + pad : by + bh - priceH + 4;
+      const room = bh - priceH - pad * 1.8;
       if (cell.type === 'prop') {
         const col = state.config.groups[cell.group]?.color || '#999';
         ctx.fillStyle = col;
         ctx.fillRect(...band);
-        const sh = ctx.createLinearGradient(band[0], band[1], band[0] + (r.side === 'l' || r.side === 'r' ? band[2] : 0), band[1] + (r.side === 'b' || r.side === 't' ? band[3] : 0));
+        const sh = ctx.createLinearGradient(band[0], band[1], band[0] + (wide ? band[2] : 0), band[1] + (wide ? 0 : band[3]));
         sh.addColorStop(0, 'rgba(255,255,255,.28)');
         sh.addColorStop(1, 'rgba(0,0,0,.12)');
         ctx.fillStyle = sh;
         ctx.fillRect(...band);
-        fitText(ctx, cell.name.toUpperCase(), bx + bw / 2, nameTop, bw - pad * 2, bh - priceH - pad * 2.2, { size: r.side === 'l' || r.side === 'r' ? 72 : 70, maxLines: r.side === 'l' || r.side === 'r' ? 2 : 4 });
+        // el nom, centrat també en vertical dins l'espai que té
+        const h = measureFit(ctx, cell.name.toUpperCase(), bw - pad * 2, room, { size: 88, maxLines: wide ? 2 : 4 });
+        fitText(ctx, cell.name.toUpperCase(), cx, top + Math.max(0, (room - h) / 2), bw - pad * 2, room, { size: 88, min: 34, maxLines: wide ? 2 : 4 });
       } else if (cell.type === 'station') {
-        drawRails(ctx, ...band, r.side === 'l' || r.side === 'r');
-        const wide = r.side === 'l' || r.side === 'r';
-        if (wide) {
-          drawTrain(ctx, bx + 120, by + bh * 0.4, 150);
-          fitText(ctx, cell.name.toUpperCase(), bx + 120 + (bw - 120) / 2 + 30, nameTop, bw - 300, bh - priceH - pad * 2, { size: 64, maxLines: 2 });
-        } else {
-          const th = fitText(ctx, cell.name.toUpperCase(), bx + bw / 2, nameTop, bw - pad * 2, (bh - priceH) * 0.42, { size: 64, maxLines: 3 });
-          drawTrain(ctx, bx + bw / 2, nameTop + th + (bh - priceH - th) * 0.42, 210);
-        }
+        drawRails(ctx, ...band, wide);
+        const th = fitText(ctx, cell.name.toUpperCase(), cx, top, bw - pad * 2, room * (wide ? 0.5 : 0.5), { size: 76, min: 32, maxLines: wide ? 2 : 3 });
+        const trainSize = wide ? Math.min(150, room - th - 10) : 200;
+        drawTrain(ctx, cx, top + th + (room - th) / 2 + 6, trainSize);
       } else {
-        fitText(ctx, cell.name.toUpperCase(), bx + bw / 2, nameTop, bw - pad * 2, bh - priceH - pad * 2, { size: 70 });
+        fitText(ctx, cell.name.toUpperCase(), cx, top, bw - pad * 2, room, { size: 84 });
       }
       if (cell.price) {
-        setFont(ctx, 800, 60, 'normal');
+        setFont(ctx, 800, 72, 'normal');
         ctx.fillStyle = '#5B5A7A';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(money(cell.price), bx + bw / 2, priceY);
+        ctx.fillText(money(cell.price), cx, priceY);
       }
     }
     ctx.restore();
@@ -722,7 +734,7 @@ let handlers = {};
 const camTarget = new THREE.Vector3(0, 0, 0.12);
 const camFocus = { x: 0, z: 0, k: 0 };
 let baseDist = 12;
-const ELEV = THREE.MathUtils.degToRad(62);
+const ELEV = THREE.MathUtils.degToRad(58);
 let turnTeam = -1;
 let lastTime = 0;
 

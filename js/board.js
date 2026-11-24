@@ -31,6 +31,7 @@ export const ICON = {
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   next: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  restart: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
 };
 export const icon = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
 
@@ -61,6 +62,7 @@ export function renderTop(muted) {
       <button class="icon-btn" type="button" data-act="log" title="Historial" aria-label="Historial">${icon('list')}</button>
       <button class="icon-btn" type="button" data-act="mute" title="${muted ? 'Activar el so' : 'Silenciar'}" aria-label="${muted ? 'Activar el so' : 'Silenciar'}">${icon(muted ? 'mute' : 'volume')}</button>
       <button class="icon-btn" type="button" data-act="fullscreen" title="Pantalla completa" aria-label="Pantalla completa">${icon('expand')}</button>
+      <button class="icon-btn icon-btn-text" type="button" data-act="restart" title="Reiniciar la partida">${icon('restart')}<span>Reiniciar</span></button>
       <button class="icon-btn" type="button" data-act="settings" title="Configuració" aria-label="Configuració">${icon('sliders')}</button>
     </div>`;
 }
@@ -88,21 +90,22 @@ export function renderDock() {
           <button class="gbtn gbtn-sm" type="button" data-act="payjail">${icon('coins')}Pagar ${money(r.jailFine)}</button>
           ${T.jailCards ? `<button class="gbtn gbtn-sm gbtn-good" type="button" data-act="jailcard">${icon('key')}Fer servir la carta</button>` : ''}</div>`
       : '';
-    main = `<div class="dock-msg"><b style="color:${T.color}">${esc(T.name)}</b>, quin número ha sortit?</div><div class="dice">${dice}</div>${jail}`;
+    main = `<div class="dock-msg">Quin número ha sortit?</div><div class="dice">${dice}</div>${jail}`;
   } else {
     main = `<div class="dock-msg">${state.lastRoll ? `Ha sortit un <b>${state.lastRoll}</b>` : ''}</div>
-      <button class="gbtn gbtn-xl gbtn-turn" type="button" data-act="endturn" style="--tc:${T.color}">Passar torn${icon('next')}</button>`;
+      <button class="gbtn gbtn-xl gbtn-turn" type="button" data-act="endturn" style="--tc:${T.color}">Passar torn${icon('next')}</button>
+      <div class="dock-sub">o premeu Enter</div>`;
   }
   const last = state.log[0];
-  $('#dock').innerHTML = `
-    <button class="ticker" id="ticker" type="button" title="Obrir l'historial">${last ? `<i class="dot ${last.kind}"></i><span>${esc(last.text)}</span>` : ''}</button>
-    <div class="dock-main">${main}</div>
+  $('#dock').innerHTML = `<div class="dock-main">${main}</div>`;
+  $('#actions').innerHTML = `
     <nav class="actions" aria-label="Accions">
-      <button class="gbtn gbtn-primary" type="button" data-act="minigame">${icon('trophy')}Minijoc fet</button>
+      <button class="gbtn gbtn-primary gbtn-wide" type="button" data-act="minigame">${icon('trophy')}Minijoc fet</button>
       <button class="gbtn" type="button" data-act="money">${icon('coins')}Diners</button>
       <button class="gbtn" type="button" data-act="trade">${icon('swap')}Intercanvi</button>
-      <button class="gbtn" type="button" data-act="auction">${icon('gavel')}Subhasta</button>
-    </nav>`;
+      <button class="gbtn gbtn-wide" type="button" data-act="auction">${icon('gavel')}Subhasta</button>
+    </nav>
+    <button class="ticker" id="ticker" type="button" title="Obrir l'historial">${last ? `<i class="dot ${last.kind}"></i><span>${esc(last.text)}</span>` : ''}</button>`;
 }
 export const renderCenter = renderDock;
 

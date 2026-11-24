@@ -828,7 +828,27 @@ const ACTIONS = {
   jailcard: () => { G.useJailCard(); after(); },
   resume: openQueue,
   setup: setupModal,
+  restart: restartModal,
 };
+
+function restartModal() {
+  openModal({
+    title: 'Reiniciar la partida?',
+    body: `<p class="lead">Tots els equips tornaran a la Sortida amb els diners inicials i sense propietats. Això no es pot desfer.</p>
+      <p class="muted">Es mantenen els noms, les fotos, el tauler i les cartes. Després podreu revisar els equips i els diners abans de començar.</p>`,
+    foot: '<button class="btn btn-ghost" type="button" data-close-btn>Cancel·lar</button><span class="spacer"></span><button class="btn btn-danger" type="button" data-a="go">Sí, reiniciar</button>',
+    onMount(d) {
+      d.querySelector('[data-close-btn]').addEventListener('click', () => dlg.close());
+      d.querySelector('[data-a=go]').addEventListener('click', () => {
+        G.newGame(S().config, S().teams);
+        dlg.close();
+        buildBoard();
+        full();
+        setupModal();
+      });
+    },
+  });
+}
 
 document.addEventListener('click', (e) => {
   if (dlg.contains(e.target)) return;
@@ -877,7 +897,10 @@ Promise.race([
 ]).catch(() => {}).finally(() => {
   buildBoard(boardHandlers);
   full();
-  if (!S().started) setupModal();
+  // si la partida no ha començat (o encara ningú ha tirat), es mostra la preparació
+  const st = S();
+  const untouched = st.round === 1 && st.turn === 0 && !st.lastRoll && !Object.keys(st.owners).length && st.log.length <= 1;
+  if (!st.started || untouched) setupModal();
   else openQueue();
 });
 

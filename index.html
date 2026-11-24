@@ -10,20 +10,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,400..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=3">
+  <link rel="stylesheet" href="css/styles.css?v=4">
 </head>
 <body>
   <div class="app" id="app">
     <header class="top" id="top"></header>
-    <aside class="teams teams-l" id="teamsL" aria-label="Equips"></aside>
+    <aside class="side side-l">
+      <div class="teams" id="teamsL" aria-label="Equips"></div>
+      <div class="side-foot" id="actions"></div>
+    </aside>
     <main class="stage" id="stage"></main>
-    <aside class="teams teams-r" id="teamsR" aria-label="Equips"></aside>
-    <footer class="dock" id="dock"></footer>
+    <aside class="side side-r">
+      <div class="teams" id="teamsR" aria-label="Equips"></div>
+      <div class="side-foot tray" id="dock"></div>
+    </aside>
   </div>
   <div class="fx-layer" id="fx" aria-hidden="true"></div>
   <div class="banner" id="banner" aria-hidden="true"></div>
   <dialog class="modal" id="modal"></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>

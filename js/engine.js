@@ -47,6 +47,7 @@ export function load() {
 
 function migrate() {
   state.config.rules = { ...RULES, ...state.config.rules };
+  if (state.config.rules.badName === 'Mal Rotllo') state.config.rules.badName = RULES.badName;
   state.config.groups = state.config.groups || clone(GROUPS);
   state.queue = state.queue || [];
   state.started ??= state.log.length > 0;
@@ -85,6 +86,7 @@ export function newGame(config = state?.config || defaultConfig(), teams = state
 // Pantalla de preparació: noms, colors i diners abans de la primera tirada
 export function startGame({ teams, rules: r }) {
   Object.assign(state.config.rules, r);
+  state.log = state.log.filter((l) => !/^Comença la partida/.test(l.text));
   state.teams.forEach((t, k) => {
     t.name = teams[k].name.trim() || t.name;
     t.color = teams[k].color;

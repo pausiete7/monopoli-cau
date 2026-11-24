@@ -115,10 +115,10 @@ export const RULES = {
   tilt: true,
   chanceDeck: 'mix', // mix | good | bad
   goodName: 'Bona Acció',
-  badName: 'Mal Rotllo',
+  badName: 'Mal Rotllet',
 };
 
-export const deckName = (rules, d) => (d === 'good' ? rules.goodName || 'Bona Acció' : rules.badName || 'Mal Rotllo');
+export const deckName = (rules, d) => (d === 'good' ? rules.goodName || 'Bona Acció' : rules.badName || 'Mal Rotllet');
 
 export const MINIGAMES = [
   'Endreçar ampolles',

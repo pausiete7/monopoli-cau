@@ -7,7 +7,7 @@ Tauler i banca del Caupoli, el Monopoli de Pioners i Caravel·les. Es juga amb q
 - **Tirada:** quan surt el dau, cliqueu la cara que ha sortit (o premeu la tecla del número). La fitxa avança sola i la web proposa el que toca.
 - **Passar torn:** botó del centre o tecla Enter.
 - **Preparar la partida:** en obrir-la per primer cop surt una pantalla per posar noms, colors, fotos i diners.
-- **Minijoc fet:** marqueu quantes cartes de Bona Acció (+) o de Mal Rotllo (−) agafa cada equip.
+- **Minijoc fet:** marqueu quantes cartes de Bona Acció (+) o de Mal Rotllet (−) agafa cada equip.
 - **Diners:** treure, donar o pagar a un altre equip (duels, proves, premis...).
 - **Intercanvi** i **Subhasta:** a la barra de baix.
 - **Clicar un equip:** construir, vendre cases, hipotecar, moure la fitxa, presó, fallida.
