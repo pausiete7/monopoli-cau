@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795553041';
+import * as G from './engine.js?v=1795554515';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795553041';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795553041';
-import * as S3 from './scene.js?v=1795553041';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795553041';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795553041';
+} from './board.js?v=1795554515';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795554515';
+import * as S3 from './scene.js?v=1795554515';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795554515';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795554515';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -24,7 +24,9 @@ async function after() {
   G.checkBankrupt(); // en negatiu i sense res per hipotecar ni vendre: fallida
   if (dlg.open && !dlg.dataset.keep) dlg.close();
   renderCenter();
-  await playFx();
+  // mentre es mouen les coses, els botons esperen (així no es pot saltar res)
+  document.body.classList.add('busy');
+  try { await playFx(); } finally { document.body.classList.remove('busy'); }
   syncDisplay();
   full();
   openQueue();
@@ -40,7 +42,8 @@ async function openQueue() {
   else if (q.type === 'card') {
     drawing = true;
     sfx.flip();
-    try { await drawCardFx(q.deck); } finally { drawing = false; }
+    const c = G.cardOf(q);
+    try { await drawCardFx(q.deck, { text: c?.text, foot: c ? effectSummary(c) : '' }); await new Promise((r) => setTimeout(r, 250)); } finally { drawing = false; }
     if (S().queue[0] === q && !dlg.open) cardModal(q);
   }
 }
@@ -60,6 +63,7 @@ function openModal({ title, body, foot = '', wide = false, onMount }) {
 }
 dlg.addEventListener('close', () => {
   // si es tanca una finestra d'acció pendent, el botó «Continuar» del centre la torna a obrir
+  if (!dlg.dataset.keep) S3.dropCard();
   renderCenter();
 });
 dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
@@ -256,7 +260,7 @@ function cardModal(q) {
     onMount(d) {
       setTimeout(() => (good ? sfx.good() : sfx.bad()), 450);
       const b = d.querySelector('[data-a=apply]');
-      b.addEventListener('click', () => { G.applyCard(); after(); });
+      b.addEventListener('click', () => { S3.dropCard(); G.applyCard(); after(); });
       b.focus();
     },
   });
@@ -392,17 +396,31 @@ function tradeModal() {
       const s = G.sq(i);
       const blocked = s.group && G.groupSquares(s.group).some((j) => S().owners[j]?.houses);
       const color = s.type === 'station' ? 'var(--ink)' : S().config.groups[s.group]?.color;
-      return `<label class="prop-check${blocked ? ' disabled' : ''}"><input type="checkbox" data-side="${side}" value="${i}" ${blocked ? 'disabled' : ''}><span class="chip" style="--g:${color}"></span>${esc(s.name)}${S().owners[i].mortgaged ? ' <span class="muted">(hipotecada)</span>' : ''}</label>`;
+      const why = blocked ? '<span class="why">té cases al grup</span>' : S().owners[i].mortgaged ? '<span class="why">hipotecada</span>' : '';
+      return `<label class="prop-check${blocked ? ' disabled' : ''}"><input type="checkbox" data-side="${side}" value="${i}" ${blocked ? 'disabled' : ''}><span class="chip" style="--g:${color}"></span><span>${esc(s.name)}</span>${why}</label>`;
     }).join('') || '<p class="muted">No té propietats.</p>';
-    return `${list}<div class="field" style="margin-top:10px"><span>I diners</span><input type="number" min="0" step="10" data-money="${side}" placeholder="0"></div>`;
+    return `${list}<div class="field" style="margin-top:10px"><span>I diners (té ${G.money(G.team(k).money)})</span><input type="number" min="0" step="10" data-money="${side}" placeholder="0"></div>`;
   };
   const body = () => `<div class="trade">
       <div class="trade-col"><div class="field"><span>Un equip</span>${teamPick('a', a, { exclude: [b] })}</div><div id="colA">${col('a')}</div></div>
       <div class="trade-col"><div class="field"><span>Amb l'altre</span>${teamPick('b', b, { exclude: [a] })}</div><div id="colB">${col('b')}</div></div>
-    </div><p class="muted" style="margin-top:12px">Marqueu el que dona cada equip. Les propietats amb cases al grup no es poden canviar.</p>`;
+    </div>
+    <div class="trade-sum" id="tradeSum"></div>`;
+  const summary = (d) => {
+    const give = (side, k) => {
+      const props = $$(`input[data-side=${side}]:checked`, d).map((x) => G.sq(Number(x.value)).name);
+      const m = Math.max(0, Math.round(Number(d.querySelector(`[data-money=${side}]`).value) || 0));
+      const parts = [...props, m ? G.money(m) : null].filter(Boolean);
+      return `<p><b>${esc(G.team(k).name)}</b> dona: ${parts.length ? esc(parts.join(', ')) : 'res'}</p>`;
+    };
+    d.querySelector('#tradeSum').innerHTML = give('a', a) + give('b', b);
+  };
   const mount = (d) => {
     bindPick(d, 'a', (v) => { a = v; d.querySelector('.m-body').innerHTML = body(); mount(d); });
     bindPick(d, 'b', (v) => { b = v; d.querySelector('.m-body').innerHTML = body(); mount(d); });
+    d.querySelector('.m-body').addEventListener('input', () => summary(d));
+    d.querySelector('.m-body').addEventListener('change', () => summary(d));
+    summary(d);
   };
   openModal({
     title: 'Intercanvi entre equips',
@@ -465,7 +483,7 @@ function teamModal(k) {
   const props = G.propsOf(k);
   const options = S().config.board.map((s, i) => `<option value="${i}" ${i === T.pos ? 'selected' : ''}>${i}. ${esc(s.name)}</option>`).join('');
   openModal({
-    title: `<span style="display:inline-flex;align-items:center;gap:12px"><span class="slip-photo" style="${avatarStyle(T)};width:48px">${avatarText(T)}</span>${esc(T.name)}</span>`,
+    title: `<span class="title-team"><span class="title-av" style="${avatarStyle(T)}">${avatarText(T)}</span>${esc(T.name)}</span>`,
     wide: true,
     body: `<p class="lead">Té <b>${G.money(T.money)}</b> en efectiu i un patrimoni total de ${G.money(G.netWorth(k))}.</p>
       <h3 class="label">Propietats</h3>
@@ -585,11 +603,15 @@ function settingsModal(tab = 'teams') {
       <div class="row"><input type="color" data-tcolor="${k}" value="${t.color}" aria-label="Color">${photoOf(t.id) ? `<button class="btn btn-ghost" type="button" data-nophoto="${k}">Treure foto</button>` : ''}</div>
     </div>`).join('')}</div>`;
 
-  const boardHTML = () => `<p class="note">Cada moni pot posar aquí les seves propietats i la seva estació. El lloguer són sis números separats per comes: sense cases, amb 1, 2, 3 i 4 cases, i amb hotel.</p>
+  const per = draft.board.length / 4;
+  const sides = ['Costat de baix', "Costat de l'esquerra", 'Costat de dalt', 'Costat de la dreta'];
+  const boardHTML = () => `<p class="note">Cada moni s'encarrega d'un costat: 4 propietats i 1 estació. El lloguer són sis números separats per comes: sense cases, amb 1, 2, 3 i 4 cases, i amb hotel.</p>
+    <div class="cfg-sq cfg-head"><span></span><span></span><span>Nom</span><span>Preu</span><span>Lloguers</span></div>
     ${draft.board.map((s, i) => {
     const color = s.type === 'prop' ? draft.groups[s.group]?.color : s.type === 'station' ? 'var(--ink)' : 'transparent';
     const editable = ['prop', 'station', 'tax', 'chance', 'go', 'jail', 'parking', 'gotojail'].includes(s.type);
-    return editable ? `<div class="cfg-sq"><span class="n">${i}</span><span class="sw" style="--g:${color}"></span>
+    const head = i % per === 1 ? `<h3 class="cfg-side">${sides[Math.floor(i / per)]} <span class="muted">(caselles ${i} a ${i + per - 2})</span></h3>` : i % per === 0 ? '<h3 class="cfg-side">Cantonada</h3>' : '';
+    return editable ? `${head}<div class="cfg-sq"><span class="n">${i}</span><span class="sw" style="--g:${color}"></span>
       <input type="text" data-sname="${i}" value="${esc(s.name)}" aria-label="Nom de la casella ${i}">
       ${s.type === 'prop' || s.type === 'station' ? `<input type="number" data-sprice="${i}" value="${s.price}" min="0" step="10" aria-label="Preu">` : s.type === 'tax' ? `<input type="number" data-samount="${i}" value="${s.amount}" min="0" step="10" aria-label="Multa">` : '<span></span>'}
       ${s.type === 'prop' ? `<input type="text" class="rent" data-srent="${i}" value="${s.rent.join(', ')}" aria-label="Lloguers">` : '<span></span>'}

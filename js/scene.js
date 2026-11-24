@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795553041';
-import { photoOf, initials } from './util.js?v=1795553041';
-import { deckName } from './data.js?v=1795553041';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795554515';
+import { photoOf, initials } from './util.js?v=1795554515';
+import { deckName } from './data.js?v=1795554515';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -963,6 +963,7 @@ export function buildBoard() {
   Object.keys(plaques).forEach((k) => delete plaques[k]);
   Object.values(houses).forEach((list) => list.forEach((m) => scene.remove(m)));
   Object.keys(houses).forEach((k) => delete houses[k]);
+  Object.keys(mortMarks).forEach((k) => { scene.remove(mortMarks[k]); delete mortMarks[k]; });
   displayPos = null;
   avatarKeys.length = 0;
   refresh(false);
@@ -1084,16 +1085,60 @@ function spot(i, jailed) {
   return c;
 }
 
+// On es col·loca cada peó: si n'hi ha diversos a la mateixa casella, en quadrícula dins la casella
 function pawnTarget(k, d = displayPos[k]) {
-  const base = spot(d.pos, d.jail);
   const same = state.teams.map((x, j) => j).filter((j) => !team(j).bankrupt && displayPos[j] && displayPos[j].pos === d.pos && !!displayPos[j].jail === !!d.jail);
   const n = same.length;
-  const idx = same.indexOf(k);
-  let dx = 0; let dz = 0;
-  const o = sq(d.pos).type === 'jail' && !d.jail ? 0.15 : 0.2;
-  if (n === 2) dx = (idx ? 1 : -1) * o;
-  else if (n >= 3) { dx = (idx % 2 ? 1 : -1) * o; dz = (idx < 2 ? -1 : 1) * o; }
-  return new THREE.Vector3(base.x + dx, 0, base.z + dz);
+  const idx = Math.max(0, same.indexOf(k));
+  const r = rect(d.pos);
+  const w = r.x1 - r.x0;
+  if (sq(d.pos).type === 'jail') {
+    if (d.jail) {
+      // dins la cel·la (2/3 de la cantonada, a dalt a la dreta), en quadrícula 2×2
+      const cx = r.x1 - w * 0.33; const cz = r.z0 + w * 0.33;
+      const o = n > 1 ? w * 0.13 : 0;
+      return new THREE.Vector3(cx + (n > 1 ? (idx % 2 ? o : -o) : 0), 0, cz + (n > 2 ? (idx < 2 ? -o : o) : 0));
+    }
+    // de visita: en forma de L per la franja de l'esquerra i la de baix, sense sortir del tauler
+    const slots = [
+      [r.x0 + w * 0.17, r.z0 + w * 0.2], [r.x0 + w * 0.17, r.z0 + w * 0.48],
+      [r.x0 + w * 0.17, r.z1 - w * 0.17], [r.x0 + w * 0.45, r.z1 - w * 0.17],
+    ];
+    const s = slots[Math.min(idx, 3)];
+    return new THREE.Vector3(s[0], 0, s[1]);
+  }
+  // casella normal: al mig de la part sense franja
+  const side = r.side;
+  let x0 = r.x0; let x1 = r.x1; let z0 = r.z0; let z1 = r.z1;
+  if (side === 'b') z0 += BAND; else if (side === 't') z1 -= BAND; else if (side === 'l') x1 -= BAND; else if (side === 'r') x0 += BAND;
+  const cx = (x0 + x1) / 2; const cz = (z0 + z1) / 2;
+  if (n <= 1) return new THREE.Vector3(cx, 0, cz);
+  const wide = (x1 - x0) >= (z1 - z0);
+  const a = Math.min(0.24, ((wide ? x1 - x0 : z1 - z0) - 0.36) / 2); // separació al llarg
+  const b = Math.min(0.2, ((wide ? z1 - z0 : x1 - x0) - 0.36) / 2); // separació a l'ample
+  let u = 0; let v = 0;
+  if (n === 2) u = idx ? a : -a;
+  else { u = idx % 2 ? a : -a; v = idx < 2 ? -b : b; if (n === 3 && idx === 2) u = 0; }
+  return wide ? new THREE.Vector3(cx + u, 0, cz + v) : new THREE.Vector3(cx + v, 0, cz + u);
+}
+
+const mortMarks = {};
+let hatchTex = null;
+function hatchTexture() {
+  if (hatchTex) return hatchTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(28,26,58,.38)';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = 14;
+  for (let k = -2; k < 4; k++) { ctx.beginPath(); ctx.moveTo(k * 48, 128); ctx.lineTo(k * 48 + 128, 0); ctx.stroke(); }
+  hatchTex = new THREE.CanvasTexture(c);
+  hatchTex.wrapS = hatchTex.wrapT = THREE.RepeatWrapping;
+  hatchTex.repeat.set(3, 3);
+  hatchTex.colorSpace = THREE.SRGBColorSpace;
+  return hatchTex;
 }
 
 const avatarKeys = [];
@@ -1160,6 +1205,20 @@ export function refresh(animateHouses = false) {
         m.position.y = 0.6;
         tween(520, (p) => { const s = 0.2 + 0.8 * p; m.scale.set(s, s, s); m.position.y = 0.025 + (1 - p) * 0.6; }, ease.back);
       }
+    }
+    // casella hipotecada: ratlles fosques per sobre
+    if (o?.mortgaged && !mortMarks[i]) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0 - 0.05, r.z1 - r.z0 - 0.05), new THREE.MeshBasicMaterial({ map: hatchTexture(), transparent: true, depthWrite: false }));
+      m.rotation.x = -Math.PI / 2;
+      const c = center(r);
+      m.position.set(c.x, 0.008, c.z);
+      scene.add(m);
+      mortMarks[i] = m;
+    } else if (!o?.mortgaged && mortMarks[i]) {
+      scene.remove(mortMarks[i]);
+      mortMarks[i].geometry.dispose();
+      mortMarks[i].material.dispose();
+      delete mortMarks[i];
     }
     // cases
     const want = o && sq(i).type === 'prop' ? o.houses : 0;
@@ -1284,34 +1343,110 @@ export function pulse(i, color = 0xFFD84D) {
   }, ease.out).then(() => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
 }
 
-// una carta surt de la pila i vola cap a la càmera
-export async function drawCard(deck) {
+// cara d'una carta: capçalera del color del mall, el text i el resum de l'efecte
+function cardFaceTexture(deck, text, foot) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 720;
+  const ctx = c.getContext('2d');
+  const good = deck === 'good';
+  const col = good ? '#23A55A' : '#3A3F96';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, 512, 720);
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = col;
+  roundRect(ctx, 16, 16, 480, 688, 28);
+  ctx.stroke();
+  roundRect(ctx, 16, 16, 480, 120, 28);
+  ctx.fillStyle = col;
+  ctx.fill();
+  ctx.fillRect(16, 90, 480, 46);
+  setFont(ctx, 900, 58, 'normal');
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(deckName(rules(), deck).toUpperCase(), 256, 80);
+  // text centrat a la zona del mig
+  let s = 54;
+  let lines;
+  for (; s >= 26; s -= 2) {
+    setFont(ctx, 800, s, 'semi-condensed');
+    lines = wrap(ctx, text || '', 420);
+    if (lines.length * s * 1.18 <= 400) break;
+  }
+  ctx.fillStyle = INK;
+  const top = 160 + (420 - lines.length * s * 1.18) / 2;
+  lines.forEach((l, k) => ctx.fillText(l, 256, top + s * 0.6 + k * s * 1.18));
+  if (foot) {
+    roundRect(ctx, 50, 610, 412, 64, 18);
+    ctx.fillStyle = '#EEF1FA';
+    ctx.fill();
+    setFont(ctx, 800, 30, 'normal');
+    ctx.fillStyle = INK;
+    ctx.fillText(foot, 256, 643);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+let liveCard = null;
+// La carta s'aixeca de la pila, es gira suaument i queda surant damunt del tauler
+export async function drawCard(deck, card) {
   const d = decks[deck];
   if (!d) return;
-  const side = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  dropCard(true);
+  const side = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
   const backM = new THREE.MeshStandardMaterial({ map: deckTexture(deck), roughness: 0.5 });
-  const card = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.02, 1.47), [side, side, backM, side, side, side]);
-  card.castShadow = true;
+  const faceM = new THREE.MeshStandardMaterial({ map: cardFaceTexture(deck, card?.text, card?.foot), roughness: 0.5 });
+  // la cara va a la part de sota (−y): quan la carta es gira, queda a la vista
+  faceM.map.center.set(0.5, 0.5);
+  faceM.map.rotation = Math.PI;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.02, 1.47), [side, side, backM, faceM, side, side]);
+  mesh.castShadow = true;
+  const pivot = new THREE.Group();
+  pivot.add(mesh);
   const start = d.group.position.clone();
-  start.y = 0.18;
-  card.position.copy(start);
-  card.rotation.y = d.group.rotation.y;
-  scene.add(card);
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
-  const end = camera.position.clone().add(dir.multiplyScalar(3.2));
-  await tween(220, (t) => { card.position.y = start.y + t * 0.5; }, ease.out);
-  await tween(520, (t) => {
-    card.position.lerpVectors(new THREE.Vector3(start.x, start.y + 0.5, start.z), end, t);
-    card.rotation.x = t * (Math.PI / 2 - ELEV + Math.PI * 0.5) * 0.9;
-    card.rotation.z = t * Math.PI;
-    const s = 1 + t * 0.6;
-    card.scale.set(s, s, s);
+  start.y = 0.19;
+  pivot.position.copy(start);
+  pivot.rotation.y = d.group.rotation.y;
+  scene.add(pivot);
+  liveCard = { pivot, mesh, mats: [side, backM, faceM] };
+  // destí: una mica més amunt i cap al centre, inclinada cap a la càmera
+  const end = new THREE.Vector3(start.x * 0.55, 1.15, start.z + 0.25);
+  const tilt = (Math.PI / 2 - ELEV) * 0.9;
+  sfxHook?.('flip');
+  await tween(380, (t) => {
+    pivot.position.y = start.y + (end.y - start.y) * 0.5 * t;
+  }, ease.out);
+  await tween(620, (t) => {
+    pivot.position.lerpVectors(new THREE.Vector3(start.x, start.y + (end.y - start.y) * 0.5, start.z), end, t);
+    pivot.rotation.y = d.group.rotation.y * (1 - t);
+    mesh.rotation.z = Math.PI * t; // es gira com una carta de veritat
+    pivot.rotation.x = -tilt * t;
+    const sc = 1 + 0.25 * t;
+    pivot.scale.set(sc, sc, sc);
   }, ease.inOut);
-  scene.remove(card);
-  card.geometry.dispose();
-  backM.map.dispose();
 }
+
+// la carta torna a la pila (o desapareix) quan ja s'ha llegit
+export function dropCard(instant = false) {
+  if (!liveCard) return;
+  const { pivot, mesh, mats } = liveCard;
+  liveCard = null;
+  const done = () => { scene.remove(pivot); mesh.geometry.dispose(); mats.forEach((m) => { m.map?.dispose(); m.dispose(); }); };
+  if (instant || reduced()) { done(); return; }
+  const from = pivot.position.clone();
+  const s0 = pivot.scale.x;
+  tween(420, (t) => {
+    pivot.position.set(from.x, from.y + t * 0.6, from.z - t * 0.4);
+    const sc = s0 * (1 - t);
+    pivot.scale.set(sc, sc, sc);
+  }, ease.inOut).then(done);
+}
+
+let sfxHook = null;
+export const setSfxHook = (fn) => { sfxHook = fn; };
 
 export function setTurn(k) { turnTeam = k; }
 export const debugCanvas = () => boardCanvas;

@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795553041';
-import * as S3 from './scene.js?v=1795553041';
-import { sfx } from './sound.js?v=1795553041';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795553041';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795554515';
+import * as S3 from './scene.js?v=1795554515';
+import { sfx } from './sound.js?v=1795554515';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795554515';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -108,7 +108,7 @@ export function renderDock() {
   $('#dock').innerHTML = `<div class="dock-main">${main}</div>`;
   $('#actions').innerHTML = `
     <nav class="actions" aria-label="Accions">
-      <button class="gbtn gbtn-primary gbtn-wide" type="button" data-act="minigame">${icon('trophy')}Minijoc fet</button>
+      <button class="gbtn gbtn-primary gbtn-wide" type="button" data-act="minigame" ${state.queue.length ? 'disabled title="Primer cal resoldre l\'acció pendent"' : ''}>${icon('trophy')}Minijoc fet</button>
       <button class="gbtn" type="button" data-act="money">${icon('coins')}Diners</button>
       <button class="gbtn" type="button" data-act="trade">${icon('swap')}Intercanvi</button>
       <button class="gbtn gbtn-wide" type="button" data-act="auction">${icon('gavel')}Subhasta</button>
@@ -122,12 +122,11 @@ const shownMoney = {};
 export function renderTeams(opts = {}) {
   const html = (t, k) => {
     // títols de propietat en miniatura, posats un al costat de l'altre com damunt la taula
+    // sense solapar-se: fins a 5 en una fila; si n'hi ha més, dues files i una mica més petits
     const props = propsOf(k);
     const n = props.length;
-    const cardW = 58;
-    const room = 270;
-    const gap = n > 1 ? Math.max(-34, Math.min(6, (room - cardW * n) / (n - 1))) : 0;
-    const chips = props.map((i, j) => {
+    const size = n <= 5 ? 'lg' : n <= 10 ? 'md' : 'sm';
+    const chips = props.map((i) => {
       const s = sq(i);
       const o = state.owners[i];
       const color = s.type === 'station' ? '#2A2C5E' : state.config.groups[s.group]?.color;
@@ -137,7 +136,7 @@ export function renderTeams(opts = {}) {
       const key = `${k}:${i}`;
       const fresh = seenDeeds.ready && !seenDeeds.has(key);
       seenDeeds.add(key);
-      return `<span class="mdeed${fresh ? ' new' : ''}${o.mortgaged ? ' mort' : ''}${s.type === 'station' ? ' st' : ''}" style="--g:${color};--r:${rot}deg;${j ? `margin-left:${gap}px;` : ''}z-index:${j + 1}" title="${esc(s.name)}">
+      return `<span class="mdeed ${size}${fresh ? ' new' : ''}${o.mortgaged ? ' mort' : ''}${s.type === 'station' ? ' st' : ''}" style="--g:${color};--r:${rot}deg" title="${esc(s.name)}" lang="ca">
         <b class="${light ? 'light' : ''}">${houses}</b><em>${esc(s.name)}</em>${o.mortgaged ? '<small>Hipotecada</small>' : ''}</span>`;
     }).join('');
     const tags = [];
@@ -370,7 +369,7 @@ export async function playFx() {
   }
 }
 
-export const drawCardFx = (deck) => S3.drawCard(deck);
+export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
 
 // ---------- Avisos ----------
 let toastTimer;
