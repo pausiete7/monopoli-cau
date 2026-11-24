@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js';
-import { photoOf, initials } from './util.js';
-import { deckName } from './data.js';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795548661';
+import { photoOf, initials } from './util.js?v=1795548661';
+import { deckName } from './data.js?v=1795548661';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -121,32 +121,119 @@ function measureFit(ctx, text, maxW, maxH, { size = 64, min = 34, weight = 800, 
 }
 
 function drawTrain(ctx, cx, cy, s) {
-  // frontal d'un tren, dibuixat
+  // frontal d'un tren de rodalies, dibuixat
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(s / 100, s / 100);
-  const body = ctx.createLinearGradient(0, -50, 0, 50);
-  body.addColorStop(0, '#3B3F8F');
-  body.addColorStop(1, '#22245E');
-  roundRect(ctx, -38, -48, 76, 86, 22);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  // pantògraf
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(-16, -52); ctx.lineTo(0, -66); ctx.lineTo(16, -52);
+  ctx.moveTo(-22, -68); ctx.lineTo(22, -68);
+  ctx.moveTo(0, -66); ctx.lineTo(0, -68);
+  ctx.stroke();
+  // carrosseria
+  ctx.beginPath();
+  ctx.moveTo(-44, 44);
+  ctx.lineTo(-44, -18);
+  ctx.quadraticCurveTo(-44, -52, -14, -54);
+  ctx.lineTo(14, -54);
+  ctx.quadraticCurveTo(44, -52, 44, -18);
+  ctx.lineTo(44, 44);
+  ctx.closePath();
+  const body = ctx.createLinearGradient(-44, 0, 44, 0);
+  body.addColorStop(0, '#E3E7F3');
+  body.addColorStop(0.35, '#FFFFFF');
+  body.addColorStop(1, '#C9CFE3');
   ctx.fillStyle = body;
   ctx.fill();
   ctx.lineWidth = 5;
   ctx.strokeStyle = INK;
   ctx.stroke();
-  roundRect(ctx, -28, -38, 56, 30, 8);
-  ctx.fillStyle = '#BFE7FF';
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.7)';
-  ctx.beginPath(); ctx.moveTo(-22, -34); ctx.lineTo(-8, -34); ctx.lineTo(-20, -12); ctx.lineTo(-26, -12); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#FFD84D';
-  ctx.beginPath(); ctx.arc(-20, 14, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(20, 14, 8, 0, Math.PI * 2); ctx.fill();
+  // franja
+  ctx.save();
+  ctx.clip();
   ctx.fillStyle = '#E8473B';
-  roundRect(ctx, -12, 24, 24, 6, 3); ctx.fill();
-  ctx.strokeStyle = INK; ctx.lineWidth = 6; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-24, 40); ctx.lineTo(-36, 56); ctx.moveTo(24, 40); ctx.lineTo(36, 56); ctx.stroke();
+  ctx.fillRect(-46, 6, 92, 12);
+  ctx.fillStyle = '#FFB020';
+  ctx.fillRect(-46, 18, 92, 4);
   ctx.restore();
+  // parabrisa
+  roundRect(ctx, -33, -44, 66, 38, 12);
+  const glass = ctx.createLinearGradient(0, -44, 0, -6);
+  glass.addColorStop(0, '#1C2756');
+  glass.addColorStop(1, '#4C6FC4');
+  ctx.fillStyle = glass;
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  ctx.beginPath(); ctx.moveTo(-26, -40); ctx.lineTo(-12, -40); ctx.lineTo(-24, -10); ctx.lineTo(-30, -10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.25)';
+  ctx.beginPath(); ctx.moveTo(-8, -40); ctx.lineTo(-2, -40); ctx.lineTo(-14, -10); ctx.lineTo(-20, -10); ctx.closePath(); ctx.fill();
+  // fars amb resplendor
+  [-26, 26].forEach((x) => {
+    const g = ctx.createRadialGradient(x, 32, 2, x, 32, 22);
+    g.addColorStop(0, 'rgba(255,240,170,.95)');
+    g.addColorStop(1, 'rgba(255,240,170,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, 32, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFF6C8';
+    ctx.beginPath(); ctx.arc(x, 32, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+  });
+  // indicador de destinació
+  roundRect(ctx, -12, 26, 24, 12, 3);
+  ctx.fillStyle = INK;
+  ctx.fill();
+  ctx.fillStyle = '#FFB020';
+  ctx.fillRect(-8, 30, 16, 4);
+  // para-xocs i rodes
+  roundRect(ctx, -40, 44, 80, 9, 4);
+  ctx.fillStyle = '#3A3F5C';
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = INK;
+  roundRect(ctx, -34, 53, 18, 8, 3); ctx.fill();
+  roundRect(ctx, 16, 53, 18, 8, 3); ctx.fill();
+  ctx.restore();
+}
+
+// cartell d'estació: rectangle blau amb vora blanca i el nom
+function drawStationSign(ctx, cx, top, maxW, maxH, text, wide) {
+  const padX = 22;
+  const padY = 16;
+  let s = 76;
+  let lines;
+  for (; s >= 30; s -= 2) {
+    setFont(ctx, 850, s, 'condensed');
+    lines = wrap(ctx, text, maxW - padX * 2);
+    if (lines.length <= (wide ? 2 : 3) && lines.length * s * 1.04 + padY * 2 <= maxH && lines.every((l) => ctx.measureText(l).width <= maxW - padX * 2)) break;
+  }
+  const w = Math.min(maxW, Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2);
+  const h = lines.length * s * 1.04 + padY * 2;
+  roundRect(ctx, cx - w / 2, top, w, h, 18);
+  const g = ctx.createLinearGradient(0, top, 0, top + h);
+  g.addColorStop(0, '#3446A8');
+  g.addColorStop(1, '#202C78');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.stroke();
+  roundRect(ctx, cx - w / 2 - 5, top - 5, w + 10, h + 10, 22);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  lines.forEach((l, k) => ctx.fillText(l, cx, top + padY + k * s * 1.04 + 2));
+  return h;
 }
 
 function drawRails(ctx, x, y, w, h, vertical) {
@@ -496,10 +583,22 @@ export function drawBoard(canvas) {
         const h = measureFit(ctx, cell.name.toUpperCase(), bw - pad * 2, room, { size: 88, maxLines: wide ? 2 : 4 });
         fitText(ctx, cell.name.toUpperCase(), cx, top + Math.max(0, (room - h) / 2), bw - pad * 2, room, { size: 88, min: 34, maxLines: wide ? 2 : 4 });
       } else if (cell.type === 'station') {
+        // fons d'andana: cel clar i línia groga de seguretat
+        const sky = ctx.createLinearGradient(bx, by, bx, by + bh);
+        sky.addColorStop(0, '#EAF1FF');
+        sky.addColorStop(1, '#FFFFFF');
+        ctx.fillStyle = sky;
+        ctx.fillRect(bx, by, bw, bh);
         drawRails(ctx, ...band, wide);
-        const th = fitText(ctx, cell.name.toUpperCase(), cx, top, bw - pad * 2, room * (wide ? 0.5 : 0.5), { size: 76, min: 32, maxLines: wide ? 2 : 3 });
-        const trainSize = wide ? Math.min(150, room - th - 10) : 200;
-        drawTrain(ctx, cx, top + th + (room - th) / 2 + 6, trainSize);
+        ctx.fillStyle = '#FFC93C';
+        if (r.side === 'b') ctx.fillRect(bx, by, bw, 10);
+        else if (r.side === 't') ctx.fillRect(bx, by + bh - 10, bw, 10);
+        else if (r.side === 'l') ctx.fillRect(bx + bw - 10, by, 10, bh);
+        else ctx.fillRect(bx, by, 10, bh);
+        const sh = drawStationSign(ctx, cx, top + 6, bw - pad * 2, room * (wide ? 0.48 : 0.42), cell.name.toUpperCase(), wide);
+        const left = room - sh - 6;
+        const trainSize = wide ? Math.min(170, left * 0.95) : Math.min(230, left * 0.85);
+        drawTrain(ctx, cx, top + sh + 6 + left / 2 + trainSize * 0.04, trainSize);
       } else {
         fitText(ctx, cell.name.toUpperCase(), cx, top, bw - pad * 2, room, { size: 84 });
       }

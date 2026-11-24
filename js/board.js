@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js';
-import * as S3 from './scene.js';
-import { sfx } from './sound.js';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795548661';
+import * as S3 from './scene.js?v=1795548661';
+import { sfx } from './sound.js?v=1795548661';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795548661';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -85,9 +85,11 @@ export function renderDock() {
   } else if (state.phase === 'roll') {
     const faces = r.maxDie > 6 ? Array.from({ length: r.maxDie - 1 }, (_, k) => k + 2) : [1, 2, 3, 4, 5, 6];
     const dice = faces.map((n) => `<button class="die${r.maxDie > 6 ? ' num' : ''}" type="button" data-roll="${n}" aria-label="Ha sortit un ${n}">${r.maxDie > 6 ? n : dieFace(n)}</button>`).join('');
+    const max = r.jailMaxTurns || 3;
+    const how = r.jailRoll ? `Surt si treu un ${r.jailExitRoll}.` : 'Ha de tirar igualment.';
     const jail = T.jail
-      ? `<div class="jail-opts"><span>A la presó: surt amb un ${r.jailExitRoll} (intent ${T.jailTurns + 1} de 3)</span>
-          <button class="gbtn gbtn-sm" type="button" data-act="payjail">${icon('coins')}Pagar ${money(r.jailFine)}</button>
+      ? `<div class="jail-opts"><span>A la presó, torn ${T.jailTurns + 1} de ${max}. ${how}</span>
+          ${r.jailPay ? `<button class="gbtn gbtn-sm" type="button" data-act="payjail">${icon('coins')}Pagar ${money(r.jailFine)}</button>` : ''}
           ${T.jailCards ? `<button class="gbtn gbtn-sm gbtn-good" type="button" data-act="jailcard">${icon('key')}Fer servir la carta</button>` : ''}</div>`
       : '';
     main = `<div class="dock-msg">Quin número ha sortit?</div><div class="dice">${dice}</div>${jail}`;

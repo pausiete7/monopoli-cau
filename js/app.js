@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js';
+import * as G from './engine.js?v=1795548661';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js';
-import * as S3 from './scene.js';
-import { sfx, toggleMute, isMuted } from './sound.js';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js';
+} from './board.js?v=1795548661';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795548661';
+import * as S3 from './scene.js?v=1795548661';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795548661';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795548661';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -484,7 +484,11 @@ function teamModal(k) {
 // ---------- Casella ----------
 const SQUARE_HELP = {
   go: () => `Cada cop que un equip hi passa o hi cau, cobra ${G.money(G.rules().goSalary)}.`,
-  jail: () => `Si només hi caieu, esteu de visita. Per sortir de la presó: treure un ${G.rules().jailExitRoll}, pagar ${G.money(G.rules().jailFine)} o fer servir la carta. Al tercer intent es paga i se surt.`,
+  jail: () => {
+    const R = G.rules();
+    const ways = [R.jailRoll ? `treure un ${R.jailExitRoll}` : null, R.jailPay ? `pagar ${G.money(R.jailFine)}` : null, 'fer servir la carta'].filter(Boolean);
+    return `Si només hi caieu, esteu de visita. Per sortir de la presó: ${ways.join(', ')}. Com a molt s'hi passen ${R.jailMaxTurns} torns.`;
+  },
   parking: () => (G.rules().parkingPot ? `Qui hi cau s'emporta el pot: ara hi ha ${G.money(S().pot)}.` : 'Casella de descans: no passa res.'),
   gotojail: () => 'Qui hi cau va directament a la presó, sense passar per la Sortida.',
   chance: () => `Qui hi cau agafa una carta ${G.rules().chanceDeck === 'good' ? 'bona' : G.rules().chanceDeck === 'bad' ? 'dolenta' : 'a l\'atzar (bona o dolenta)'}.`,
@@ -582,6 +586,9 @@ function settingsModal(tab = 'teams') {
       <label class="field"><span>Cobrar a la Sortida</span><input type="number" data-r="goSalary" value="${r.goSalary}" step="10"></label>
       <label class="field"><span>Pagar per sortir de la presó</span><input type="number" data-r="jailFine" value="${r.jailFine}" step="10"></label>
       <label class="field"><span>Número per sortir de la presó</span><input type="number" data-r="jailExitRoll" value="${r.jailExitRoll}" min="1" max="12"></label>
+      <label class="field"><span>Torns màxims a la presó</span><input type="number" data-r="jailMaxTurns" value="${r.jailMaxTurns}" min="1" max="10"></label>
+      <label class="check"><input type="checkbox" data-r="jailPay" ${r.jailPay ? 'checked' : ''}> Es pot pagar per sortir</label>
+      <label class="check"><input type="checkbox" data-r="jailRoll" ${r.jailRoll ? 'checked' : ''}> Es pot sortir traient el número</label>
       <label class="field"><span>Dau</span><select data-r="maxDie"><option value="6" ${r.maxDie === 6 ? 'selected' : ''}>Un dau (1 a 6)</option><option value="12" ${r.maxDie === 12 ? 'selected' : ''}>Dos daus (2 a 12)</option></select></label>
       <label class="field"><span>Moneda</span><input type="text" data-r="currency" value="${esc(r.currency)}" maxlength="6"></label>
       <label class="field"><span>Nom del mall de cartes que guanya</span><input type="text" data-r="goodName" value="${esc(r.goodName)}" maxlength="22"></label>
@@ -734,7 +741,10 @@ function settingsModal(tab = 'teams') {
 function setupModal() {
   const r = G.rules();
   const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
-  const vals = { startMoney: r.startMoney, goSalary: r.goSalary, jailFine: r.jailFine };
+  const vals = {
+    startMoney: r.startMoney, goSalary: r.goSalary,
+    jailPay: r.jailPay, jailFine: r.jailFine, jailRoll: r.jailRoll, jailExitRoll: r.jailExitRoll, jailMaxTurns: r.jailMaxTurns,
+  };
   const body = () => `<p class="lead">Poseu el nom i el color de cada equip i, si voleu, una foto. Després, els diners.</p>
     <div class="cfg-grid setup-grid">${teams.map((t, k) => `<div class="cfg-team" style="--tc:${t.color}">
       <label class="cfg-photo" style="${avatarStyle(t)}" title="Posar una foto">${photoOf(t.id) ? '' : icon('camera')}
@@ -745,7 +755,14 @@ function setupModal() {
     <div class="cfg-rules" style="margin-top:18px">
       <label class="field"><span>Diners per començar</span><input type="number" data-r="startMoney" value="${vals.startMoney}" step="50" min="0"></label>
       <label class="field"><span>Cobrar en passar per la Sortida</span><input type="number" data-r="goSalary" value="${vals.goSalary}" step="10" min="0"></label>
-      <label class="field"><span>Pagar per sortir de la presó</span><input type="number" data-r="jailFine" value="${vals.jailFine}" step="10" min="0"></label>
+      <label class="field"><span>Torns màxims a la presó</span><input type="number" data-r="jailMaxTurns" value="${vals.jailMaxTurns}" step="1" min="1" max="10"></label>
+    </div>
+    <div class="jail-rules">
+      <div class="jr"><label class="check"><input type="checkbox" data-r="jailPay" ${vals.jailPay ? 'checked' : ''}> Es pot pagar per sortir de la presó</label>
+        <label class="jr-val" ${vals.jailPay ? '' : 'hidden'}><span>Quant</span><input type="number" data-r="jailFine" value="${vals.jailFine}" step="10" min="0"></label></div>
+      <div class="jr"><label class="check"><input type="checkbox" data-r="jailRoll" ${vals.jailRoll ? 'checked' : ''}> Es pot sortir traient un número amb el dau</label>
+        <label class="jr-val" ${vals.jailRoll ? '' : 'hidden'}><span>Número</span><input type="number" data-r="jailExitRoll" value="${vals.jailExitRoll}" step="1" min="1" max="12"></label></div>
+      <p class="muted">La carta de ${esc(deckName(r, 'good'))} per quedar lliure de la presó sempre funciona.${!vals.jailPay && !vals.jailRoll ? ` Sense cap opció, se surt després de ${vals.jailMaxTurns} torns.` : ''}</p>
     </div>
     <div class="cfg-team" style="--tc:#FFB020;margin-top:8px;grid-template-columns:64px 1fr auto">
       <label class="cfg-photo" style="width:64px;height:64px;--tc:#FFB020;${photoOf('jail') ? `background-image:url(${photoOf('jail')})` : ''}" title="Foto per a la presó">${photoOf('jail') ? '' : icon('lock')}
@@ -767,7 +784,9 @@ function setupModal() {
         const ds = e.target.dataset;
         if (ds.tname !== undefined) teams[ds.tname].name = e.target.value;
         if (ds.tcolor !== undefined) { teams[ds.tcolor].color = e.target.value; show(); }
-        if (ds.r !== undefined) vals[ds.r] = Math.max(0, Math.round(Number(e.target.value) || 0));
+        if (ds.r !== undefined) {
+          if (e.target.type === 'checkbox') { vals[ds.r] = e.target.checked; show(); } else vals[ds.r] = Math.max(0, Math.round(Number(e.target.value) || 0));
+        }
       });
       box.addEventListener('change', async (e) => {
         const el = e.target;

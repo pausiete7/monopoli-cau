@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795548661';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -276,17 +276,23 @@ export function roll(n) {
   const T = team(t);
   state.lastRoll = n;
   if (T.jail) {
-    if (n === rules().jailExitRoll) {
+    const R = rules();
+    const max = Math.max(1, R.jailMaxTurns || 3);
+    if (R.jailRoll && n === R.jailExitRoll) {
       T.jail = false; T.jailTurns = 0;
       log(`${T.name} treu un ${n} i surt de la presó.`, 'good');
     } else {
       T.jailTurns++;
-      if (T.jailTurns >= 3) {
-        transfer(t, 'bank', rules().jailFine, 'presó');
+      if (T.jailTurns >= max) {
+        if (R.jailPay) {
+          transfer(t, 'bank', R.jailFine, 'presó');
+          log(`${T.name} ha passat ${max} torns a la presó: paga ${money(R.jailFine)} i surt.`, 'bad');
+        } else {
+          log(`${T.name} ja ha complert ${max} torns a la presó i surt.`, 'info');
+        }
         T.jail = false; T.jailTurns = 0;
-        log(`${T.name} ha esgotat els 3 intents: paga ${money(rules().jailFine)} i surt.`, 'bad');
       } else {
-        log(`${T.name} treu un ${n} i es queda a la presó (intent ${T.jailTurns} de 3).`, 'info');
+        log(`${T.name} treu un ${n} i es queda a la presó (torn ${T.jailTurns} de ${max}).`, 'info');
         state.phase = 'end';
         save();
         return;
@@ -304,7 +310,7 @@ export function roll(n) {
 export function payJail() {
   const t = state.turn;
   const T = team(t);
-  if (!T.jail || state.phase !== 'roll') return;
+  if (!T.jail || state.phase !== 'roll' || !rules().jailPay) return;
   checkpoint();
   transfer(t, 'bank', rules().jailFine, 'presó');
   T.jail = false; T.jailTurns = 0;

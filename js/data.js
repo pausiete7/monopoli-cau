@@ -75,7 +75,7 @@ export const CARDS = {
     { text: 'Has trobat el foulard que havies perdut. Cobra 100.', effect: 'money', value: 100 },
     { text: 'Ets el primer de la cua del sopar. Avança fins a la Sortida.', effect: 'goto', value: 0 },
     { text: 'La teva cançó de campaments ha triomfat: cada equip et paga 30.', effect: 'each', value: 30 },
-    { text: 'Surt de la presó gratis. Guarda aquesta carta fins que la necessitis.', effect: 'jailfree', value: 0 },
+    { text: 'Quedes lliure de la presó! Guarda aquesta carta i fes-la servir quan et tanquin.', effect: 'jailfree', value: 0 },
     { text: 'Tens el vent a favor. Avança 3 caselles.', effect: 'move', value: 3 },
     { text: 'Tira un altre cop.', effect: 'extra', value: 0 },
     { text: "Has venut totes les neules de l'extrajob. Cobra 200.", effect: 'money', value: 200 },
@@ -108,6 +108,9 @@ export const RULES = {
   goSalary: 200,
   jailFine: 50,
   jailExitRoll: 6,
+  jailPay: true, // es pot pagar per sortir
+  jailRoll: true, // es pot sortir traient el número
+  jailMaxTurns: 3, // torns màxims a la presó
   maxDie: 6,
   stationRent: [25, 50, 100, 200],
   parkingPot: false,
