@@ -505,6 +505,27 @@ button:disabled { cursor: not-allowed; }
 .fly.bad { background: linear-gradient(180deg, #FF7B6B, var(--bad)); }
 .confetti { position: absolute; top: -20px; width: 11px; height: 17px; border-radius: 3px; }
 
+/* títol que vola fins a la targeta de l'equip */
+.fly-deed {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 130px;
+  height: 176px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(28, 26, 58, .2), 0 16px 40px rgba(0, 0, 0, .45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--ink);
+}
+.fly-deed b { align-self: stretch; height: 40px; border-radius: 7px; background: var(--g); }
+.fly-deed span { flex: 1; display: grid; place-items: center; font: 800 17px/1.05 var(--f-display); font-variation-settings: 'wdth' 70; text-transform: uppercase; }
+.fly-deed em { font-style: normal; font-weight: 800; font-size: 15px; color: var(--ink-soft); }
+
 /* tiquet de lloguer */
 .rent-ticket {
   position: absolute;

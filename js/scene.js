@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557310';
-import { photoOf, initials } from './util.js?v=1795557310';
-import { deckName } from './data.js?v=1795557310';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557515';
+import { photoOf, initials } from './util.js?v=1795557515';
+import { deckName } from './data.js?v=1795557515';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1235,6 +1235,7 @@ export function refresh(animateHouses = false) {
       const old = list.splice(0);
       const n = want === 5 ? 1 : want;
       const placements = housePlacements(r, n);
+      const toHotel = animateHouses && kind === 'hotel' && haveKind === 'house' && old.length === 4 && !reduced();
       placements.forEach((pos, j) => {
         const m = kind === 'hotel' ? makeHotel() : makeHouse();
         m.userData.kind = kind;
@@ -1242,13 +1243,38 @@ export function refresh(animateHouses = false) {
         m.rotation.y = pos.rot;
         scene.add(m);
         list.push(m);
+        if (toHotel) {
+          // les 4 cases s'ajunten i surt l'hotel amb un «pop»
+          m.scale.set(0.001, 0.001, 0.001);
+          setTimeout(() => {
+            tween(520, (p) => { const s = ease.back(p); m.scale.set(s, s, s); }, ease.linear);
+            dustPuff(pos.x, pos.z, 14, 0.5);
+            sparkle(pos.x, pos.z);
+            sfxHook?.('hotel');
+          }, 420);
+          return;
+        }
         const isNew = animateHouses && (kind === 'hotel' || j >= old.length);
         if (isNew) {
           m.position.y = 1.6;
           tween(700, (p) => { m.position.y = (1 - p) * 1.6; }, ease.bounce);
+          // quan toca a terra (primer bot), núvol de pols
+          setTimeout(() => { dustPuff(pos.x, pos.z); sfxHook?.('poof'); }, reduced() ? 0 : 260);
         }
       });
-      old.forEach((m) => scene.remove(m));
+      if (toHotel) {
+        const c = old.reduce((acc, m) => ({ x: acc.x + m.position.x / 4, z: acc.z + m.position.z / 4 }), { x: 0, z: 0 });
+        old.forEach((m) => {
+          const from = m.position.clone();
+          tween(420, (p) => {
+            m.position.x = from.x + (c.x - from.x) * p;
+            m.position.z = from.z + (c.z - from.z) * p;
+            m.position.y = Math.sin(Math.PI * p) * 0.25;
+            const s = 1 - p * 0.95;
+            m.scale.set(s, s, s);
+          }, ease.inOut).then(() => scene.remove(m));
+        });
+      } else old.forEach((m) => scene.remove(m));
     }
   }
   // piles de cartes
@@ -1382,6 +1408,106 @@ export function coinBurst(i, n = 12, { power = 1 } = {}) {
 }
 const rnd3 = (a) => (Math.random() * 2 - 1) * a;
 
+// núvol de pols on cau una casa
+let dustMat = null;
+let dustGeo = null;
+function dustPuff(x, z, n = 10, spread = 0.35) {
+  if (reduced() || !scene) return;
+  dustGeo = dustGeo || new THREE.SphereGeometry(0.05, 10, 8);
+  for (let k = 0; k < n; k++) {
+    const mat = (dustMat || (dustMat = new THREE.MeshStandardMaterial({ color: 0xEDE6D8, roughness: 1, transparent: true }))).clone();
+    const m = new THREE.Mesh(dustGeo, mat);
+    const ang = (k / n) * Math.PI * 2 + Math.random() * 0.4;
+    m.position.set(x, 0.04, z);
+    scene.add(m);
+    const dx = Math.cos(ang) * spread * (0.6 + Math.random() * 0.6);
+    const dz = Math.sin(ang) * spread * (0.6 + Math.random() * 0.6);
+    tween(650 + Math.random() * 250, (t) => {
+      m.position.set(x + dx * t, 0.04 + t * 0.18, z + dz * t);
+      const s = 1 + t * 2.4;
+      m.scale.set(s, s, s);
+      mat.opacity = 0.85 * (1 - t);
+    }, ease.out).then(() => { scene.remove(m); mat.dispose(); });
+  }
+}
+
+// espurnes daurades (hotel, Sortida)
+function sparkle(x, z, n = 16, height = 0.8) {
+  if (reduced() || !scene) return;
+  const geo = new THREE.OctahedronGeometry(0.04, 0);
+  for (let k = 0; k < n; k++) {
+    const mat = new THREE.MeshBasicMaterial({ color: k % 3 ? 0xFFD84D : 0xFFFFFF, transparent: true });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, 0.2, z);
+    scene.add(m);
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 0.2 + Math.random() * 0.4;
+    const up = height * (0.5 + Math.random() * 0.8);
+    tween(800 + Math.random() * 300, (t) => {
+      m.position.set(x + Math.cos(ang) * rad * t, 0.2 + up * Math.sin(Math.PI * t * 0.8), z + Math.sin(ang) * rad * t);
+      m.rotation.y += 0.2;
+      mat.opacity = 1 - t;
+    }, ease.out).then(() => { scene.remove(m); mat.dispose(); });
+  }
+}
+
+// segell que cau damunt d'una casella («VENUT», «MULTA»)
+export function stampSquare(i, color, text) {
+  if (!scene) return;
+  const r = rect(i);
+  const c = center(r);
+  const size = Math.min(r.x1 - r.x0, r.z1 - r.z0) * 0.95;
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 512;
+  const g = cv.getContext('2d');
+  g.translate(256, 256);
+  g.rotate(-0.22);
+  g.strokeStyle = color;
+  g.fillStyle = color;
+  g.lineWidth = 26;
+  roundRect(g, -220, -110, 440, 220, 30);
+  g.stroke();
+  g.lineWidth = 8;
+  roundRect(g, -190, -82, 380, 164, 18);
+  g.stroke();
+  setFont(g, 900, 120, 'expanded');
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, 0, 8);
+  // textura de tinta: alguns forats aleatoris
+  g.globalCompositeOperation = 'destination-out';
+  for (let k = 0; k < 140; k++) { g.beginPath(); g.arc(Math.random() * 440 - 220, Math.random() * 220 - 110, Math.random() * 5, 0, Math.PI * 2); g.fill(); }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.rotation.z = (Math.random() - 0.5) * 0.3;
+  m.renderOrder = 5;
+  m.position.set(c.x, 1.4, c.z);
+  m.scale.set(1.8, 1.8, 1.8);
+  scene.add(m);
+  const done = () => { scene.remove(m); m.geometry.dispose(); mat.dispose(); tex.dispose(); };
+  if (reduced()) { m.position.y = 0.02; m.scale.set(1, 1, 1); setTimeout(done, 1500); return; }
+  tween(300, (t) => {
+    m.position.y = 1.4 - 1.38 * t;
+    const s = 1.8 - 0.8 * t;
+    m.scale.set(s, s, s);
+  }, (p) => p * p).then(() => {
+    dustPuff(c.x, c.z, 8, 0.45);
+    setTimeout(() => tween(450, (t) => { mat.opacity = 1 - t; }, ease.linear).then(done), 1500);
+  });
+}
+
+// posició a la pantalla del centre d'una casella (per fer-hi volar coses en HTML)
+export function screenPos(i) {
+  if (!camera || !renderer) return null;
+  const c = center(rect(i));
+  const v = new THREE.Vector3(c.x, 0.05, c.z).project(camera);
+  const b = renderer.domElement.getBoundingClientRect();
+  return { x: b.left + (v.x + 1) / 2 * b.width, y: b.top + (1 - v.y) / 2 * b.height };
+}
+
 // la placa de l'amo fa un bot (qui cobra)
 export function bouncePlaque(i) {
   const p = plaques[i];
@@ -1472,7 +1598,6 @@ export async function drawCard(deck, card) {
   // 1) s'aixeca de la pila; 2) ve cap a tu mentre es gira de cap per avall a cap per amunt, sempre plana
   const lifted = new THREE.Vector3(start.x, start.y + 0.45, start.z);
   const toward = new THREE.Vector3().lerpVectors(new THREE.Vector3(0, 0.6, 0.6), camera.position, 0.5);
-  sfxHook?.('flip');
   await tween(320, (t) => { pivot.position.lerpVectors(start, lifted, t); }, ease.out);
   await tween(820, (t) => {
     pivot.position.lerpVectors(lifted, toward, t);

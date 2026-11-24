@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795557310';
+import * as G from './engine.js?v=1795557515';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795557310';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795557310';
-import * as S3 from './scene.js?v=1795557310';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795557310';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795557310';
+} from './board.js?v=1795557515';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795557515';
+import * as S3 from './scene.js?v=1795557515';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795557515';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795557515';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1013,6 +1013,7 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- Arrencada ----------
 setMutedRef(isMuted);
+S3.setSfxHook((n) => sfx[n]()); // el tauler 3D també fa sons (pols, hotel…)
 G.load();
 const boardHandlers = {
   onSquare: (i) => { if (!busyNow()) squareModal(i); },

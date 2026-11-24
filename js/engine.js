@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795557310';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795557515';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -403,8 +403,8 @@ export function buy(i, t, price = sq(i).price) {
   checkpoint();
   state.queue = state.queue.filter((q) => !(q.type === 'buy' && q.sq === i));
   state.owners[i] = { team: t, houses: 0, mortgaged: false };
+  push({ type: 'buy', team: t, square: i, via: 'buy' }); // primer el segell i el títol volant, després els diners
   transfer(t, 'bank', price, 'compra');
-  push({ type: 'buy', team: t, square: i });
   log(`${name(t)} compra ${sq(i).name} per ${money(price)}.`, 'good');
   if (sq(i).group && ownsGroup(t, sq(i).group)) {
     push({ type: 'confetti', team: t });
@@ -434,15 +434,16 @@ export function auctionWin(i, t, price) {
   checkpoint();
   state.queue = state.queue.filter((q) => !(q.type === 'auction' && q.sq === i));
   const prev = ownerOf(i);
+  // ordre visual: «Adjudicat!», segell i títol volant, i després els diners
+  push({ type: 'banner', text: 'Adjudicat!', tone: 'good', team: t, sub: `${sq(i).name} per ${money(price)}` });
+  push({ type: 'buy', team: t, square: i, via: 'buy', from: prev });
   if (prev !== null && prev !== t) {
-    transfer(t, prev, price, 'subhasta');
     state.owners[i].team = t;
+    transfer(t, prev, price, 'subhasta');
   } else if (prev === null) {
     state.owners[i] = { team: t, houses: 0, mortgaged: false };
     transfer(t, 'bank', price, 'subhasta');
   }
-  push({ type: 'buy', team: t, square: i });
-  push({ type: 'banner', text: 'Adjudicat!', tone: 'good', team: t, sub: `${sq(i).name} per ${money(price)}` });
   log(`${name(t)} guanya la subhasta de ${sq(i).name} per ${money(price)}.`, 'good');
   if (sq(i).group && ownsGroup(t, sq(i).group)) push({ type: 'confetti', team: t });
   save();
@@ -698,8 +699,8 @@ export function trade({ a, b, aProps, bProps, aMoney, bMoney }) {
   if (aProps.some((i) => ownerOf(i) !== a) || bProps.some((i) => ownerOf(i) !== b)) return 'Alguna propietat ja no és de qui la dona.';
   if ([...aProps, ...bProps].some(groupHasHouses)) return 'Les propietats amb cases al grup no es poden canviar.';
   checkpoint();
-  aProps.forEach((i) => { state.owners[i].team = b; push({ type: 'buy', team: b, square: i }); });
-  bProps.forEach((i) => { state.owners[i].team = a; push({ type: 'buy', team: a, square: i }); });
+  aProps.forEach((i) => { state.owners[i].team = b; push({ type: 'buy', team: b, square: i, via: 'trade', from: a }); });
+  bProps.forEach((i) => { state.owners[i].team = a; push({ type: 'buy', team: a, square: i, via: 'trade', from: b }); });
   if (aMoney) transfer(a, b, aMoney, 'intercanvi');
   if (bMoney) transfer(b, a, bMoney, 'intercanvi');
   const desc = (props, m) => [...props.map((i) => sq(i).name), m ? money(m) : null].filter(Boolean).join(' + ') || 'res';

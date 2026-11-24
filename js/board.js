@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795557310';
-import * as S3 from './scene.js?v=1795557310';
-import { sfx } from './sound.js?v=1795557310';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795557310';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795557515';
+import * as S3 from './scene.js?v=1795557515';
+import { sfx } from './sound.js?v=1795557515';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795557515';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -340,10 +340,26 @@ export async function playFx() {
           break;
         }
         case 'buy':
-          S3.refresh(true);
-          S3.pulse(e.square, 0xFFFFFF);
-          sfx.build();
-          await wait(reduced() ? 0 : 450);
+          if (e.via === 'buy') {
+            // compra (o subhasta): segell «VENUT» del color de l'equip i el títol vola fins a la seva targeta
+            S3.stampSquare(e.square, team(e.team).color, 'VENUT');
+            sfx.stamp();
+            await wait(reduced() ? 0 : 500);
+            S3.refresh(true);
+            await flyDeed(e.square, e.team, e.from ?? null);
+            renderTeams();
+          } else if (e.via === 'trade') {
+            // intercanvi: el títol passa d'una targeta a l'altra
+            S3.refresh(true);
+            S3.pulse(e.square, 0xFFFFFF);
+            await flyDeed(e.square, e.team, e.from);
+            renderTeams();
+          } else {
+            S3.refresh(true);
+            S3.pulse(e.square, 0xFFFFFF);
+            sfx.build();
+            await wait(reduced() ? 0 : 450);
+          }
           break;
         case 'build':
           S3.refresh(true);
@@ -393,6 +409,32 @@ export async function playFx() {
 }
 
 export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
+
+// un títol de propietat vola des del tauler (o des d'un altre equip) fins a la targeta de l'equip
+async function flyDeed(i, toTeam, fromTeam) {
+  if (reduced()) return;
+  const s = sq(i);
+  const color = s.type === 'station' ? '#2A2C5E' : state.config.groups[s.group]?.color || '#999';
+  const fromEl = fromTeam !== null && fromTeam !== undefined ? $(`[data-team="${fromTeam}"]`) : null;
+  const a = fromEl ? rectCenter(fromEl) : S3.screenPos(i);
+  const toEl = $(`[data-team="${toTeam}"] .tc-props`) || $(`[data-team="${toTeam}"]`);
+  if (!a || !toEl) return;
+  const b = rectCenter(toEl);
+  const el = document.createElement('div');
+  el.className = 'fly-deed';
+  el.innerHTML = `<b style="--g:${color}"></b><span>${esc(s.name)}</span><em>${money(s.price)}</em>`;
+  $('#fx').appendChild(el);
+  const midY = Math.min(a.y, b.y) - 160;
+  const anim = el.animate([
+    { transform: `translate(${a.x}px, ${a.y}px) translate(-50%, -50%) scale(.4) rotate(-20deg)`, opacity: 0 },
+    { transform: `translate(${a.x}px, ${a.y - 60}px) translate(-50%, -50%) scale(1.15) rotate(4deg)`, opacity: 1, offset: 0.25 },
+    { transform: `translate(${(a.x + b.x) / 2}px, ${midY}px) translate(-50%, -50%) scale(1) rotate(-6deg)`, opacity: 1, offset: 0.6 },
+    { transform: `translate(${b.x}px, ${b.y}px) translate(-50%, -50%) scale(.42) rotate(3deg)`, opacity: 0.9 },
+  ], { duration: 1300, easing: 'cubic-bezier(.4,0,.2,1)' });
+  sfx.flip();
+  await Promise.race([anim.finished.catch(() => {}), wait(1450)]);
+  el.remove();
+}
 
 // tiquet de lloguer
 async function rentTicket(e) {
