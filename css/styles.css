@@ -311,7 +311,7 @@ button:disabled { cursor: not-allowed; }
 .dock-msg { font-size: 18px; font-weight: 700; min-height: 1.2em; text-align: center; }
 .dock-msg b { color: var(--gold); }
 .dock-sub { font-size: 14px; opacity: .65; }
-.dock-main .gbtn-xl { width: 100%; }
+.dock-main .gbtn-xl { width: 100%; white-space: normal; padding: 10px 14px; font-size: clamp(18px, 1.3vw, 24px); }
 .dice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .die {
   width: clamp(56px, 4.2vw, 78px);
@@ -655,9 +655,9 @@ input[type=color] { width: 54px; height: 46px; padding: 2px; border: 2px solid v
 .check input { width: 22px; height: 22px; accent-color: var(--red); }
 .note { padding: 12px 16px; border-radius: 14px; background: #FFF4C4; font-size: 15px; line-height: 1.45; margin: 0 0 14px; }
 
-@media (min-width: 1700px) and (min-height: 950px) {
-  .modal { zoom: 1.2; }
-}
+.setup-grid { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+.setup-grid .cfg-team { grid-template-columns: 64px 1fr auto; padding: 10px; }
+.setup-grid .cfg-photo { width: 64px; height: 64px; }
 
 @media (max-width: 1300px) {
   .ord-name { display: none; }

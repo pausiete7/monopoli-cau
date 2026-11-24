@@ -736,7 +736,7 @@ function setupModal() {
   const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
   const vals = { startMoney: r.startMoney, goSalary: r.goSalary, jailFine: r.jailFine };
   const body = () => `<p class="lead">Poseu el nom i el color de cada equip i, si voleu, una foto. Després, els diners.</p>
-    <div class="cfg-grid">${teams.map((t, k) => `<div class="cfg-team" style="--tc:${t.color}">
+    <div class="cfg-grid setup-grid">${teams.map((t, k) => `<div class="cfg-team" style="--tc:${t.color}">
       <label class="cfg-photo" style="${avatarStyle(t)}" title="Posar una foto">${photoOf(t.id) ? '' : icon('camera')}
         <input type="file" accept="image/*" data-photo="${k}" aria-label="Foto de l'equip ${k + 1}"></label>
       <div class="field" style="margin:0"><span>Equip ${k + 1}</span><input type="text" data-tname="${k}" value="${esc(t.name)}" maxlength="28"></div>
@@ -747,8 +747,8 @@ function setupModal() {
       <label class="field"><span>Cobrar en passar per la Sortida</span><input type="number" data-r="goSalary" value="${vals.goSalary}" step="10" min="0"></label>
       <label class="field"><span>Pagar per sortir de la presó</span><input type="number" data-r="jailFine" value="${vals.jailFine}" step="10" min="0"></label>
     </div>
-    <div class="cfg-team" style="--tc:#FFB020;margin-top:8px">
-      <label class="cfg-photo" style="--tc:#FFB020;${photoOf('jail') ? `background-image:url(${photoOf('jail')})` : ''}" title="Foto per a la presó">${photoOf('jail') ? '' : icon('lock')}
+    <div class="cfg-team" style="--tc:#FFB020;margin-top:8px;grid-template-columns:64px 1fr auto">
+      <label class="cfg-photo" style="width:64px;height:64px;--tc:#FFB020;${photoOf('jail') ? `background-image:url(${photoOf('jail')})` : ''}" title="Foto per a la presó">${photoOf('jail') ? '' : icon('lock')}
         <input type="file" accept="image/*" data-photo="jail" aria-label="Foto per a la presó"></label>
       <div><b>Foto per a la presó</b><div class="muted">Opcional: la cara d'un moni darrere els barrots.</div></div>
       ${photoOf('jail') ? '<button class="btn btn-ghost" type="button" data-nojail>Treure</button>' : '<span></span>'}
