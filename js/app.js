@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795555334';
+import * as G from './engine.js?v=1795555692';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795555334';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795555334';
-import * as S3 from './scene.js?v=1795555334';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795555334';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795555334';
+} from './board.js?v=1795555692';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795555692';
+import * as S3 from './scene.js?v=1795555692';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795555692';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795555692';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -33,6 +33,8 @@ async function after() {
 }
 
 let drawing = false;
+// hi ha alguna cosa en marxa (animacions o una carta girant-se): ara no s'ha de poder clicar res del joc
+const busyNow = () => isPlaying() || drawing;
 async function openQueue() {
   if (dlg.open || isPlaying() || drawing) return;
   const q = S().queue[0];
@@ -41,9 +43,10 @@ async function openQueue() {
   else if (q.type === 'auction') auctionModal(q);
   else if (q.type === 'card') {
     drawing = true;
+    document.body.classList.add('busy');
     sfx.flip();
     const c = G.cardOf(q);
-    try { await drawCardFx(q.deck, { text: c?.text, foot: c ? effectSummary(c) : '' }); await new Promise((r) => setTimeout(r, 250)); } finally { drawing = false; }
+    try { await drawCardFx(q.deck, { text: c?.text, foot: c ? effectSummary(c) : '' }); await new Promise((r) => setTimeout(r, 250)); } finally { drawing = false; document.body.classList.remove('busy'); }
     if (S().queue[0] === q && !dlg.open) cardModal(q, S3.currentCardId());
     else S3.dropCard();
   }
@@ -280,13 +283,19 @@ function deckModal(deck) {
     foot: `<button class="btn btn-primary" type="button" data-a="go">Treure carta</button>`,
     onMount(d) {
       bindPick(d, 't', (v) => { pick = v; });
-      d.querySelector('[data-a=go]').addEventListener('click', () => { G.drawCard(pick, deck); dlg.close(); after(); });
+      d.querySelector('[data-a=go]').addEventListener('click', () => {
+        if (S().queue.length) { toast('Primer cal resoldre l\'acció pendent.'); return; }
+        G.drawCard(pick, deck);
+        dlg.close();
+        after();
+      });
     },
   });
 }
 
 // ---------- Minijoc ----------
 function minigameModal() {
+  if (S().queue.length) { toast('Primer cal resoldre l\'acció pendent: premeu «Continuar».'); return; }
   const dist = {};
   S().teams.forEach((t, k) => { dist[k] = 0; });
   const vals = [-3, -2, -1, 0, 1, 2, 3];
@@ -869,8 +878,9 @@ function setupModal() {
 
 // ---------- Accions de la barra i del tauler ----------
 async function doUndo() {
-  if (isPlaying()) return;
+  if (busyNow()) return;
   if (G.undo()) {
+    S3.dropCard(true); // cap carta no es pot quedar surant d'una acció desfeta
     if (dlg.open) dlg.close();
     buildBoard();
     full();
@@ -942,6 +952,7 @@ function restartModal() {
       d.querySelector('[data-close-btn]').addEventListener('click', () => dlg.close());
       d.querySelector('[data-a=go]').addEventListener('click', () => {
         G.newGame(S().config, S().teams);
+        S3.dropCard(true);
         dlg.close();
         buildBoard();
         full();
@@ -951,12 +962,21 @@ function restartModal() {
   });
 }
 
+// accions que es poden fer encara que hi hagi una animació en marxa
+const ALWAYS = new Set(['mute', 'fullscreen', 'log']);
+
 document.addEventListener('click', (e) => {
   if (dlg.contains(e.target)) return;
   const act = e.target.closest('[data-act]');
-  if (act) { ACTIONS[act.dataset.act]?.(); return; }
+  // mentre es mou alguna cosa (fitxes, diners, una carta girant-se) no es pot tocar res del joc
+  if (busyNow() && !(act && ALWAYS.has(act.dataset.act))) return;
+  if (act) {
+    if (act.disabled) return;
+    ACTIONS[act.dataset.act]?.();
+    return;
+  }
   const roll = e.target.closest('[data-roll]');
-  if (roll && !roll.disabled && !isPlaying()) { G.roll(Number(roll.dataset.roll)); after(); return; }
+  if (roll && !roll.disabled) { G.roll(Number(roll.dataset.roll)); after(); return; }
   const t = e.target.closest('[data-team]');
   if (t) { teamModal(Number(t.dataset.team)); return; }
   if (e.target.closest('#ticker')) logModal();
@@ -969,7 +989,7 @@ document.addEventListener('keydown', (e) => {
     doUndo();
     return;
   }
-  if (dlg.open || e.target.matches('input, textarea, select') || isPlaying()) return;
+  if (dlg.open || e.target.matches('input, textarea, select') || busyNow()) return;
   const n = Number(e.key);
   if (n >= 1 && n <= 9 && G.state.phase === 'roll' && !G.state.queue.length && n <= G.rules().maxDie) {
     G.roll(n);
@@ -983,8 +1003,13 @@ document.addEventListener('keydown', (e) => {
 // ---------- Arrencada ----------
 G.load();
 const boardHandlers = {
-  onSquare: (i) => { if (!isPlaying()) squareModal(i); },
-  onDeck: (d) => { if (!isPlaying()) deckModal(d); },
+  onSquare: (i) => { if (!busyNow()) squareModal(i); },
+  onDeck: (d) => {
+    if (busyNow()) return;
+    // si hi ha alguna cosa pendent, primer s'ha de resoldre: si no, sortiria abans aquella carta
+    if (S().queue.length) { toast('Primer cal resoldre l\'acció pendent: premeu «Continuar».'); return; }
+    deckModal(d);
+  },
 };
 // el tauler es dibuixa amb les fonts: esperem que arribin (amb un límit per si no hi ha internet)
 Promise.race([
@@ -1005,4 +1030,4 @@ Promise.race([
 });
 
 // per depurar des de la consola
-window.__monopoli = { G, renderAll: full, renderSquares, renderTeams, scene: S3 };
+window.__monopoli = { G, renderAll: full, renderSquares, renderTeams, scene: S3, handlers: boardHandlers, busyNow };
