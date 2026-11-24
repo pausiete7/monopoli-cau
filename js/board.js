@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795558466';
-import * as S3 from './scene.js?v=1795558466';
-import { sfx } from './sound.js?v=1795558466';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795558466';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795559824';
+import * as S3 from './scene.js?v=1795559824';
+import { sfx } from './sound.js?v=1795559824';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795559824';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -207,9 +207,9 @@ function anchor(who) {
     if (el) return rectCenter(el);
   }
   if (who === 'pot') {
-    // el pot és a la cantonada del Pàrquing
+    // el pot és el ventall de bitllets darrere la cantonada del Pàrquing
     const i = state.config.board.findIndex((s) => s.type === 'parking');
-    const p = i >= 0 ? S3.screenPos(i) : null;
+    const p = S3.potScreenPos() || (i >= 0 ? S3.screenPos(i) : null);
     if (p) return p;
   }
   return rectCenter($('#stage'));
@@ -271,6 +271,31 @@ function flyMoney(from, to, amount) {
   };
   if (typeof from === 'number') tag(a, false, 0);
   if (toTeam) tag(b, true, 1300 + n * 100);
+}
+// Bitllet gegant amb una cara al mig: surt de qui paga, es queda gran al centre perquè es vegi bé la
+// cara i després vola cap al pot (o del pot cap a l'equip que se l'emporta).
+function bigBill(from, to, amount) {
+  if (reduced()) return;
+  const img = S3.billImage(amount);
+  if (!img) return;
+  const layer = $('#fx');
+  const a = anchor(from);
+  const b = anchor(to);
+  const m = rectCenter($('#stage'));
+  const el = document.createElement('div');
+  el.className = 'bigbill';
+  const pic = document.createElement('img');
+  pic.src = img.toDataURL();
+  pic.alt = '';
+  el.appendChild(pic);
+  layer.appendChild(el);
+  el.animate([
+    { transform: `translate(${a.x}px, ${a.y}px) translate(-50%, -50%) rotate(-20deg) scale(.12)`, opacity: 0 },
+    { transform: `translate(${m.x}px, ${m.y}px) translate(-50%, -50%) rotate(4deg) scale(1.06)`, opacity: 1, offset: 0.22 },
+    { transform: `translate(${m.x}px, ${m.y}px) translate(-50%, -50%) rotate(-2deg) scale(1)`, opacity: 1, offset: 0.3 },
+    { transform: `translate(${m.x}px, ${m.y - 6}px) translate(-50%, -50%) rotate(-1deg) scale(1)`, opacity: 1, offset: 0.68 },
+    { transform: `translate(${b.x}px, ${b.y}px) translate(-50%, -50%) rotate(${to === 'pot' ? -35 : 25}deg) scale(.1)`, opacity: 0.2 },
+  ], { duration: 2600, easing: 'cubic-bezier(.45,0,.25,1)' }).finished.then(() => el.remove());
 }
 export const moneyDuration = (amount) => {
   let n = 0; let rest = Math.abs(amount);
@@ -339,17 +364,20 @@ export async function playFx() {
           } else await wait(reduced() ? 0 : 250);
           break;
         case 'money': {
-          flyMoney(e.from, e.to, e.amount);
-          // si els diners van al pot, les monedes noves cauen a la pila quan hi arriben els bitllets
-          if (e.to === 'pot' || e.from === 'pot') setTimeout(() => { S3.animatePotNext(); S3.refresh(false); }, reduced() ? 0 : e.to === 'pot' ? 1100 : 0);
+          // el pot del Pàrquing: un bitllet gegant amb cara; la resta, bitllets petits
+          if (e.to === 'pot' || e.from === 'pot') bigBill(e.from, e.to, e.amount);
+          else flyMoney(e.from, e.to, e.amount);
+          // el ventall de bitllets del pot creix quan hi arriba el bitllet (o es buida en sortir)
+          if (e.to === 'pot' || e.from === 'pot') setTimeout(() => { S3.animatePotNext(); S3.refresh(false); }, reduced() ? 0 : e.to === 'pot' ? 2300 : 300);
           const both = typeof e.from === 'number' && typeof e.to === 'number';
           if (typeof e.from === 'number') sfx.pay();
           // qui paga baixa de seguida; qui cobra puja quan li arriben els bitllets
           renderTeams({ hold: typeof e.to === 'number' ? e.to : null, amount: e.amount });
-          const dur = moneyDuration(e.amount);
+          const isPot = e.to === 'pot' || e.from === 'pot';
+          const dur = isPot ? 2600 : moneyDuration(e.amount);
           if (typeof e.to === 'number') setTimeout(() => { sfx.cash(); renderTeams(); }, reduced() ? 0 : dur - 500);
-          // el lloguer entre equips es veu sencer abans de continuar; la resta, una mica més ràpid
-          await wait(reduced() ? 0 : both ? dur + 300 : Math.min(1400, dur * 0.6));
+          // el lloguer entre equips i el bitllet gegant del pot es veuen sencers; la resta, més ràpid
+          await wait(reduced() ? 0 : both || isPot ? dur + 200 : Math.min(1400, dur * 0.6));
           break;
         }
         case 'buy':

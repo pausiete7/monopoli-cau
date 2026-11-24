@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795558466';
-import { photoOf, initials } from './util.js?v=1795558466';
-import { deckName } from './data.js?v=1795558466';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795559824';
+import { photoOf, initials } from './util.js?v=1795559824';
+import { deckName } from './data.js?v=1795559824';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1053,6 +1053,8 @@ function fit() {
   const pts = [];
   [-l, l].forEach((x) => [-l, l].forEach((z) => { pts.push(new THREE.Vector3(x, 0, z)); pts.push(new THREE.Vector3(x, -0.38, z)); }));
   pts.push(new THREE.Vector3(0, 0.55, -l));
+  // el ventall de bitllets del pot surt per darrere del tauler: també ha de cabre
+  if (state.config && parkingIndex() >= 0 && rules().parkingPot) pts.push(...potBounds());
   let lo = 4; let hi = 60;
   for (let k = 0; k < 30; k++) {
     const d = (lo + hi) / 2;
@@ -1078,6 +1080,7 @@ function placeCamera(d, fx, fz, k) {
   camera.updateMatrixWorld();
 }
 
+export const debugFit = () => { fit(); return baseDist; };
 function resize() {
   const w = container.clientWidth;
   const h = container.clientHeight;
@@ -1574,58 +1577,279 @@ function potLabelTexture(amount) {
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+// El pot són bitllets grans que sobresurten per darrere de la cantonada del Pàrquing, fora del
+// tauler (no tapen cap casella). Al mig de cada bitllet hi ha una cara: les fotos «bill1..3»
+// es guarden només en aquest navegador.
+const BILL_W = 1.95;
+const BILL_H = 0.91;
+const BILL_MAX = 5;
+const BILL_KINDS = [
+  { v: 500, c: '#D9C2F7', d: '#5B2FA0' },
+  { v: 100, c: '#FFD3A0', d: '#A4520A' },
+  { v: 50, c: '#BBDDF7', d: '#1F5F9E' },
+  { v: 20, c: '#BDEBC8', d: '#17723A' },
+  { v: 10, c: '#FFF1A8', d: '#8A7000' },
+];
+export const BILL_FACES = ['bill1', 'bill2', 'bill3'];
+const faceImgs = {};
+function billFace(n) {
+  const id = BILL_FACES[n % BILL_FACES.length];
+  const src = photoOf(id);
+  if (!src) return null;
+  const cached = faceImgs[id];
+  if (cached && cached.src === src) return cached.complete ? cached : null;
+  const img = new Image();
+  img.onload = () => { potKey = ''; syncPot(false); };
+  img.src = src;
+  faceImgs[id] = img;
+  return null;
+}
+// bitllets per a una quantitat: els més grossos primer, com a molt BILL_MAX
+function billsFor(amount) {
+  const out = [];
+  let left = amount;
+  for (const b of BILL_KINDS) {
+    while (left >= b.v && out.length < BILL_MAX) { out.push(b); left -= b.v; }
+  }
+  if (left > 0 && out.length < BILL_MAX) out.push(BILL_KINDS[BILL_KINDS.length - 1]);
+  return out;
+}
+const billTexCache = {};
+function billTexture(kind, face) {
+  const key = `${kind.v}|${face ? face.src.length + face.src.slice(-24) : '-'}`;
+  if (billTexCache[key]) return billTexCache[key];
+  const W2 = 1024; const H2 = 480;
+  const c = document.createElement('canvas');
+  c.width = W2; c.height = H2;
+  const g = c.getContext('2d');
+  roundRect(g, 0, 0, W2, H2, 26);
+  g.fillStyle = kind.c;
+  g.fill();
+  g.save();
+  g.clip();
+  // trama fina de seguretat
+  g.strokeStyle = kind.d;
+  g.globalAlpha = 0.1;
+  g.lineWidth = 3;
+  for (let x = -H2; x < W2; x += 18) { g.beginPath(); g.moveTo(x, H2); g.lineTo(x + H2, 0); g.stroke(); }
+  g.globalAlpha = 1;
+  g.restore();
+  // marc amb ratlletes
+  const m = 30; const band = 26;
+  g.strokeStyle = kind.d;
+  g.lineWidth = 6;
+  g.strokeRect(m, m, W2 - 2 * m, H2 - 2 * m);
+  g.strokeRect(m + band, m + band, W2 - 2 * (m + band), H2 - 2 * (m + band));
+  g.fillStyle = kind.d;
+  for (let x = m + band + 6; x < W2 - m - band - 6; x += 15) {
+    g.fillRect(x, m + 6, 6, band - 9);
+    g.fillRect(x, H2 - m - band + 3, 6, band - 9);
+  }
+  for (let y = m + band + 6; y < H2 - m - band - 6; y += 15) {
+    g.fillRect(m + 6, y, band - 9, 6);
+    g.fillRect(W2 - m - band + 3, y, band - 9, 6);
+  }
+  // xifres a les cantonades
+  const box = (x, y, w, h) => { g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(x, y, w, h); g.lineWidth = 5; g.strokeRect(x, y, w, h); };
+  const num = (x, y) => {
+    box(x, y, 190, 100);
+    setFont(g, 900, 80, 'condensed');
+    g.fillStyle = kind.d; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(String(kind.v), x + 95, y + 54);
+  };
+  num(100, 96);
+  num(W2 - 290, H2 - 196);
+  // a l'altra diagonal: una tenda i el nom del banc
+  box(W2 - 290, 96, 190, 100);
+  g.beginPath();
+  g.moveTo(W2 - 195, 108); g.lineTo(W2 - 140, 186); g.lineTo(W2 - 250, 186); g.closePath();
+  g.fillStyle = kind.d; g.fill();
+  g.beginPath();
+  g.moveTo(W2 - 195, 140); g.lineTo(W2 - 178, 186); g.lineTo(W2 - 212, 186); g.closePath();
+  g.fillStyle = kind.c; g.fill();
+  box(100, H2 - 196, 190, 100);
+  setFont(g, 800, 30, 'condensed');
+  g.fillStyle = kind.d;
+  g.fillText('BANC', 195, H2 - 162);
+  g.fillText('DEL CAU', 195, H2 - 128);
+  // nom a dalt
+  setFont(g, 900, 46, 'normal');
+  const tw = g.measureText('CAUPOLI').width + 50;
+  roundRect(g, W2 / 2 - tw / 2, 66, tw, 64, 14);
+  g.fillStyle = kind.d; g.fill();
+  g.fillStyle = '#fff';
+  g.fillText('CAUPOLI', W2 / 2, 101);
+  // retrat rodó al mig
+  const cx = W2 / 2; const cy = 290; const r = 128;
+  g.beginPath(); g.arc(cx, cy, r + 14, 0, Math.PI * 2); g.fillStyle = kind.d; g.fill();
+  g.beginPath(); g.arc(cx, cy, r + 6, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill();
+  g.save();
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.clip();
+  const bg = g.createRadialGradient(cx, cy - 30, 10, cx, cy, r);
+  bg.addColorStop(0, '#FFFFFF'); bg.addColorStop(1, kind.c);
+  g.fillStyle = bg;
+  g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+  if (face) {
+    const s = Math.min(face.width, face.height);
+    g.drawImage(face, (face.width - s) / 2, (face.height - s) / 2, s, s, cx - r * 1.04, cy - r * 1.04, r * 2.08, r * 2.08);
+  } else {
+    // sense foto: una rosa dels vents
+    g.translate(cx, cy);
+    g.fillStyle = kind.d;
+    for (let k = 0; k < 8; k++) {
+      const big = k % 2 === 0;
+      g.beginPath();
+      g.moveTo(0, -(big ? r * 0.8 : r * 0.5));
+      g.lineTo(big ? 18 : 12, 0); g.lineTo(-(big ? 18 : 12), 0);
+      g.closePath(); g.fill();
+      g.rotate(Math.PI / 4);
+    }
+  }
+  g.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  billTexCache[key] = t;
+  return t;
+}
+// Els bitllets surten de la cantonada com els pètals d'un ventall: cap amunt, en diagonal i cap a
+// l'esquerra. Els que porten cara queden repartits i al davant perquè es vegin sencers.
+const FAN_FROM = THREE.MathUtils.degToRad(128);
+const FAN_TO = THREE.MathUtils.degToRad(200);
+function fanAngles(n) {
+  if (n === 1) return [THREE.MathUtils.degToRad(135)];
+  return Array.from({ length: n }, (_, k) => FAN_FROM + (k / (n - 1)) * (FAN_TO - FAN_FROM));
+}
+function faceSlots(n) {
+  if (n <= 3) return Array.from({ length: n }, (_, k) => k);
+  return [0, Math.round((n - 1) / 2), n - 1];
+}
+function fanPose(k, n) {
+  const th = fanAngles(n)[k];
+  const front = faceSlots(n).includes(k);
+  return { th, z: (front ? 0.06 : 0) + k * 0.008 };
+}
+const BILL_IN = 0.2; // tros del bitllet amagat darrere el tauler
+function placeBill(piv, b, p) {
+  piv.position.z = p.z;
+  piv.rotation.z = p.th - Math.PI;
+  b.position.x = -(BILL_W / 2 - BILL_IN);
+}
+function potAnchor() {
+  const h = L() / 2 + 0.27;
+  return new THREE.Vector3(-h + 0.2, -0.22, -h - 0.1);
+}
+function makeFan() {
+  const fan = new THREE.Group();
+  fan.position.copy(potAnchor());
+  fan.rotation.set(-0.22, 0.12, 0, 'YXZ');
+  return fan;
+}
+// punts que la càmera ha d'encabir perquè el ventall ple no surti de la pantalla
+function potBounds() {
+  const fan = makeFan();
+  fan.updateMatrixWorld();
+  const pts = [];
+  for (let k = 0; k < BILL_MAX; k++) {
+    const piv = new THREE.Object3D();
+    const b = new THREE.Object3D();
+    piv.add(b);
+    placeBill(piv, b, fanPose(k, BILL_MAX));
+    fan.add(piv);
+    fan.updateMatrixWorld(true);
+    [[-BILL_W / 2, BILL_H / 2], [-BILL_W / 2, -BILL_H / 2]].forEach(([x, y]) => pts.push(new THREE.Vector3(x, y, 0).applyMatrix4(b.matrixWorld)));
+  }
+  return pts;
+}
+let billGeo = null;
 function syncPot(animate) {
   const i = parkingIndex();
   const on = i >= 0 && rules().parkingPot;
   const amount = on ? state.pot || 0 : 0;
-  const key = `${i}|${on}|${amount}`;
+  const faces = BILL_FACES.map((id) => photoOf(id).length).join(',');
+  const key = `${i}|${on}|${amount}|${faces}`;
   if (key === potKey) return;
   const before = Number(potKey.split('|')[2] || 0);
   potKey = key;
-  if (potGroup) { scene.remove(potGroup); potGroup = null; }
-  if (!on) return;
-  const c = center(rect(i));
-  potGroup = new THREE.Group();
-  // les monedes: fins a 6 piles, d'una moneda cada 20 €
-  coinGeo = coinGeo || new THREE.CylinderGeometry(0.15, 0.15, 0.035, 28);
-  coinMat = coinMat || new THREE.MeshStandardMaterial({ color: 0xFFC83D, metalness: 0.85, roughness: 0.28, emissive: 0x3a2400, emissiveIntensity: 0.3 });
-  const coins = Math.min(60, Math.ceil(amount / 20));
-  const stacks = [[0, 0], [0.32, 0.05], [-0.3, 0.1], [0.12, 0.33], [-0.15, -0.3], [0.3, -0.28]];
-  const newCoins = animate && amount > before ? Math.min(coins, Math.ceil((amount - before) / 20)) : 0;
-  for (let k = 0; k < coins; k++) {
-    const s = stacks[k % stacks.length];
-    const level = Math.floor(k / stacks.length);
-    const m = new THREE.Mesh(coinGeo, coinMat);
-    m.castShadow = true;
-    const y = 0.02 + level * 0.038;
-    m.position.set(s[0] + Math.sin(k * 7.1) * 0.015, y, s[1] + Math.cos(k * 3.7) * 0.015);
-    m.rotation.y = k * 0.7;
-    potGroup.add(m);
-    if (k >= coins - newCoins && !reduced()) {
-      m.position.y = y + 1.4;
-      setTimeout(() => tween(450, (t) => { m.position.y = y + (1 - t) * 1.4; }, ease.bounce), (k - (coins - newCoins)) * 60);
+  const old = potGroup;
+  potGroup = null;
+  if (old) {
+    if (animate && amount < before && !reduced()) {
+      // el pot se'n va: els bitllets surten volant cap al centre del tauler
+      old.userData.bills.forEach((b, k) => {
+        b.material.transparent = true;
+        const from = b.position.clone();
+        setTimeout(() => tween(700, (t) => {
+          b.position.set(from.x + t * 1.2, from.y + Math.sin(t * Math.PI) * 0.8 + t * 0.6, from.z + t * 2.2);
+          b.material.opacity = 1 - t;
+        }, ease.inOut), k * 70);
+      });
+      setTimeout(() => scene.remove(old), 700 + old.userData.bills.length * 70);
+    } else scene.remove(old);
+  }
+  if (!on || amount <= 0) return;
+  billGeo = billGeo || new THREE.PlaneGeometry(BILL_W, BILL_H);
+  const list = billsFor(amount);
+  const n = list.length;
+  const fan = makeFan();
+  const bills = [];
+  const prevN = animate && amount > before ? billsFor(before).length : n;
+  const slots = faceSlots(n);
+  list.forEach((kind, k) => {
+    // les cares van als bitllets repartits pel ventall, que queden al davant
+    const s = slots.indexOf(k);
+    const face = s >= 0 ? billFace(s) : null;
+    const mat = new THREE.MeshStandardMaterial({ map: billTexture(kind, face), roughness: 0.7, side: THREE.DoubleSide });
+    const b = new THREE.Mesh(billGeo, mat);
+    b.castShadow = true;
+    const piv = new THREE.Group();
+    piv.add(b);
+    placeBill(piv, b, fanPose(k, n));
+    fan.add(piv);
+    bills.push(b);
+    // els bitllets nous surten des de darrere del tauler
+    if (k >= prevN && !reduced()) {
+      const x0 = b.position.x;
+      b.position.x = x0 + BILL_W * 0.75;
+      setTimeout(() => tween(560, (t) => { b.position.x = x0 + BILL_W * 0.75 * (1 - t); }, ease.back), (k - prevN) * 90);
     }
-  }
-  if (amount > 0) {
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: potLabelTexture(amount), depthWrite: false }));
-    label.scale.set(1.35, 0.53, 1);
-    label.position.set(0, 0.55 + Math.floor(coins / stacks.length) * 0.038, 0);
-    label.renderOrder = 12;
-    potGroup.add(label);
-  }
-  // les monedes queden a la part de dins de la cantonada (cap al centre del tauler)
-  potGroup.position.set(c.x + 0.4, 0, c.z + 0.4);
-  scene.add(potGroup);
+  });
+  fan.userData.bills = bills;
+  // cartell amb el total, fora del tauler i a sota del ventall
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: potLabelTexture(amount), depthWrite: false }));
+  label.scale.set(1.05, 0.41, 1);
+  label.position.set(-L() / 2 - 0.8, 0.2, -L() / 2 + 1.7);
+  label.renderOrder = 12;
+  const group = new THREE.Group();
+  group.add(fan, label);
+  group.userData.bills = bills;
+  potGroup = group;
+  scene.add(group);
 }
 
-// qui cau al Pàrquing s'emporta el pot: les monedes volen cap a la seva fitxa
+// qui cau al Pàrquing s'emporta el pot
 export function potWin(teamIdx) {
   const i = parkingIndex();
   if (i < 0 || !scene) return;
-  coinBurst(i, 18, { power: 0.9 });
+  coinBurst(i, 14, { power: 0.8 });
   const p = pawns[teamIdx];
   if (p) sparkle(p.position.x, p.position.z, 18, 1);
   shake(0.03, 400);
+}
+// imatge d'un bitllet gran (el de més valor que cap a la quantitat), amb la cara que toca
+let bigFace = 0;
+export function billImage(amount) {
+  const kind = BILL_KINDS.find((b) => amount >= b.v) || BILL_KINDS[BILL_KINDS.length - 1];
+  let face = null;
+  for (let k = 0; k < BILL_FACES.length && !face; k++) face = billFace((bigFace + k) % BILL_FACES.length);
+  bigFace++;
+  return billTexture(kind, face).image;
+}
+export function potScreenPos() {
+  if (!camera || !renderer || !potGroup) return null;
+  const v = potAnchor().add(new THREE.Vector3(-0.3, 0.5, 0)).project(camera);
+  const b = renderer.domElement.getBoundingClientRect();
+  return { x: b.left + (v.x + 1) / 2 * b.width, y: b.top + (1 - v.y) / 2 * b.height };
 }
 
 // gàbies de barrots damunt dels equips empresonats

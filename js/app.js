@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795558466';
+import * as G from './engine.js?v=1795559824';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795558466';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795558466';
-import * as S3 from './scene.js?v=1795558466';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795558466';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795558466';
+} from './board.js?v=1795559824';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795559824';
+import * as S3 from './scene.js?v=1795559824';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795559824';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795559824';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -604,7 +604,8 @@ function resizePhoto(file, large = false) {
         c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
       }
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', large ? 0.85 : 0.82));
+      // les cares retallades (PNG amb fons transparent) es queden en PNG perquè no surti un fons negre
+      resolve(!large && file.type === 'image/png' ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', large ? 0.85 : 0.82));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No és una imatge.')); };
     img.src = url;
@@ -615,6 +616,9 @@ function resizePhoto(file, large = false) {
 const BOARD_PHOTOS = {
   center: { title: 'Foto del centre del tauler', hint: 'Una foto del grup: ocupa tot el centre, sota el logotip.', icon: 'camera', color: '#2D7FF9' },
   jail: { title: 'Foto per a la presó', hint: "Opcional: la cara d'un moni darrere els barrots.", icon: 'lock', color: '#FFB020' },
+  bill1: { title: 'Cara del bitllet 1', hint: 'Surt al mig dels bitllets del pot del Pàrquing.', icon: 'camera', color: '#1E8A47' },
+  bill2: { title: 'Cara del bitllet 2', hint: 'Cada bitllet de davant porta una cara diferent.', icon: 'camera', color: '#2A6FB0' },
+  bill3: { title: 'Cara del bitllet 3', hint: 'Si en falta alguna, el bitllet porta una rosa dels vents.', icon: 'camera', color: '#B8650E' },
 };
 const boardPhotosHTML = () => Object.entries(BOARD_PHOTOS).map(([id, p]) => {
   const ph = photoOf(id);
