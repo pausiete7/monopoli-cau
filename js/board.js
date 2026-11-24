@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795557882';
-import * as S3 from './scene.js?v=1795557882';
-import { sfx } from './sound.js?v=1795557882';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795557882';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795558466';
+import * as S3 from './scene.js?v=1795558466';
+import { sfx } from './sound.js?v=1795558466';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795558466';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -206,6 +206,12 @@ function anchor(who) {
     const el = $(`[data-money="${who}"]`) || $(`[data-team="${who}"]`);
     if (el) return rectCenter(el);
   }
+  if (who === 'pot') {
+    // el pot és a la cantonada del Pàrquing
+    const i = state.config.board.findIndex((s) => s.type === 'parking');
+    const p = i >= 0 ? S3.screenPos(i) : null;
+    if (p) return p;
+  }
   return rectCenter($('#stage'));
 }
 
@@ -325,10 +331,17 @@ export async function playFx() {
           S3.pulse(e.square);
           sfx.land();
           setTimeout(() => S3.focus(false), 350);
-          await wait(reduced() ? 0 : 250);
+          if (sq(e.square).type === 'station') {
+            // estació: passa un trenet per les vies
+            S3.train(e.square);
+            sfx.whistle();
+            await wait(reduced() ? 0 : 1300);
+          } else await wait(reduced() ? 0 : 250);
           break;
         case 'money': {
           flyMoney(e.from, e.to, e.amount);
+          // si els diners van al pot, les monedes noves cauen a la pila quan hi arriben els bitllets
+          if (e.to === 'pot' || e.from === 'pot') setTimeout(() => { S3.animatePotNext(); S3.refresh(false); }, reduced() ? 0 : e.to === 'pot' ? 1100 : 0);
           const both = typeof e.from === 'number' && typeof e.to === 'number';
           if (typeof e.from === 'number') sfx.pay();
           // qui paga baixa de seguida; qui cobra puja quan li arriben els bitllets
@@ -379,6 +392,32 @@ export async function playFx() {
           confetti(team(e.team).color);
           sfx.good();
           break;
+        case 'go':
+          // Sortida: esclat daurat, monedes i «+200» flotant
+          S3.goBurst();
+          sfx.coins();
+          floatLabel(`+${money(e.amount)}`, S3.screenPos(0), 'good');
+          await wait(reduced() ? 0 : 900);
+          break;
+        case 'tax':
+          // Multa: segell vermell que cau sobre la cantonada
+          S3.stampSquare(e.square, '#E8473B', 'MULTA');
+          sfx.stamp();
+          floatLabel(`−${money(e.amount)}`, S3.screenPos(e.square), 'bad');
+          await wait(reduced() ? 0 : 1100);
+          break;
+        case 'potwin':
+          // s'emporta el pot del Pàrquing
+          S3.potWin(e.team);
+          sfx.coins();
+          floatLabel(`+${money(e.amount)}`, S3.screenPos(e.square), 'good');
+          await wait(reduced() ? 0 : 900);
+          break;
+        case 'siren':
+          // la sirena de «Ves a la presó» s'encén i el tauler tremola
+          S3.siren();
+          await wait(reduced() ? 0 : 900);
+          break;
         case 'rent':
           // tiquet de lloguer: qui paga, a qui, per quina casella i per què; monedes saltant de la casella
           S3.coinBurst(e.square, 22);
@@ -409,6 +448,22 @@ export async function playFx() {
 }
 
 export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
+
+// etiqueta que surt d'un punt de la pantalla i puja (+200 €, −100 €)
+function floatLabel(text, pos, tone = 'good') {
+  if (reduced() || !pos) return;
+  const el = document.createElement('div');
+  el.className = `fly ${tone}`;
+  el.textContent = text;
+  $('#fx').appendChild(el);
+  el.animate([
+    { transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) scale(.5)`, opacity: 0 },
+    { transform: `translate(${pos.x}px, ${pos.y - 60}px) translate(-50%, -50%) scale(1.25)`, opacity: 1, offset: 0.2 },
+    { transform: `translate(${pos.x}px, ${pos.y - 90}px) translate(-50%, -50%) scale(1.1)`, opacity: 1, offset: 0.8 },
+    { transform: `translate(${pos.x}px, ${pos.y - 120}px) translate(-50%, -50%) scale(1)`, opacity: 0 },
+  ], { duration: 2000, easing: 'ease-out' }).finished.then(() => el.remove(), () => el.remove());
+  setTimeout(() => el.remove(), 2300);
+}
 
 // un títol de propietat vola des del tauler (o des d'un altre equip) fins a la targeta de l'equip
 async function flyDeed(i, toTeam, fromTeam) {

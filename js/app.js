@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795557882';
+import * as G from './engine.js?v=1795558466';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795557882';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795557882';
-import * as S3 from './scene.js?v=1795557882';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795557882';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795557882';
+} from './board.js?v=1795558466';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795558466';
+import * as S3 from './scene.js?v=1795558466';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795558466';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795558466';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -546,7 +546,7 @@ const SQUARE_HELP = {
     const ways = [R.jailRoll ? `treure un ${R.jailExitRoll}` : null, R.jailPay ? `pagar ${G.money(R.jailFine)}` : null, 'fer servir la carta'].filter(Boolean);
     return `Si només hi caieu, esteu de visita. Per sortir de la presó: ${ways.join(', ')}. Com a molt s'hi passen ${R.jailMaxTurns} torns.`;
   },
-  parking: () => (G.rules().parkingPot ? `Qui hi cau s'emporta el pot: ara hi ha ${G.money(S().pot)}.` : 'Casella de descans: no passa res.'),
+  parking: () => (G.rules().parkingPot ? `Qui hi cau s'emporta el pot de multes: ara hi ha ${G.money(S().pot)}. Hi van a parar els pagaments de les cartes, les reparacions i el que es paga per sortir de la presó.` : 'Casella de descans: no passa res.'),
   gotojail: () => 'Qui hi cau va directament a la presó, sense passar per la Sortida.',
   chance: () => `Qui hi cau agafa una carta ${G.rules().chanceDeck === 'good' ? 'bona' : G.rules().chanceDeck === 'bad' ? 'dolenta' : 'a l\'atzar (bona o dolenta)'}.`,
   tax: (s) => `Qui hi cau paga ${G.money(s.amount)}.`,
@@ -693,6 +693,8 @@ function settingsModal(tab = 'teams') {
       <label class="check"><input type="checkbox" data-r="jailRoll" ${r.jailRoll ? 'checked' : ''}> Es pot sortir traient el número</label>
       <label class="field"><span>Dau</span><select data-r="maxDie"><option value="6" ${r.maxDie === 6 ? 'selected' : ''}>Un dau (1 a 6)</option><option value="12" ${r.maxDie === 12 ? 'selected' : ''}>Dos daus (2 a 12)</option></select></label>
       <label class="field"><span>Moneda</span><input type="text" data-r="currency" value="${esc(r.currency)}" maxlength="6"></label>
+      <label class="field"><span>Pot inicial del Pàrquing</span><input type="number" data-r="potStart" value="${r.potStart || 0}" step="50" min="0"></label>
+      <label class="check"><input type="checkbox" data-r="parkingPot" ${r.parkingPot ? 'checked' : ''}> Les multes van al pot del Pàrquing</label>
       <label class="field"><span>Nom del mall de cartes que guanya</span><input type="text" data-r="goodName" value="${esc(r.goodName)}" maxlength="22"></label>
       <label class="field"><span>Nom del mall de cartes que perd</span><input type="text" data-r="badName" value="${esc(r.badName)}" maxlength="22"></label>
     </div>
@@ -851,6 +853,7 @@ function setupModal() {
   const vals = {
     startMoney: r.startMoney, goSalary: r.goSalary,
     jailPay: r.jailPay, jailFine: r.jailFine, jailRoll: r.jailRoll, jailExitRoll: r.jailExitRoll, jailMaxTurns: r.jailMaxTurns,
+    potStart: r.potStart || 0,
   };
   const body = () => `<p class="lead">Poseu el nom i el color de cada equip i, si voleu, una foto. Després, els diners.</p>
     <div class="cfg-grid setup-grid">${teams.map((t, k) => `<div class="cfg-team" style="--tc:${t.color}">
@@ -863,6 +866,7 @@ function setupModal() {
       <label class="field"><span>Diners per començar</span><input type="number" data-r="startMoney" value="${vals.startMoney}" step="50" min="0"></label>
       <label class="field"><span>Cobrar en passar per la Sortida</span><input type="number" data-r="goSalary" value="${vals.goSalary}" step="10" min="0"></label>
       <label class="field"><span>Torns màxims a la presó</span><input type="number" data-r="jailMaxTurns" value="${vals.jailMaxTurns}" step="1" min="1" max="10"></label>
+      <label class="field"><span>Pot inicial del Pàrquing</span><input type="number" data-r="potStart" value="${vals.potStart}" step="50" min="0"></label>
     </div>
     <div class="jail-rules">
       <div class="jr"><label class="check"><input type="checkbox" data-r="jailPay" ${vals.jailPay ? 'checked' : ''}> Es pot pagar per sortir de la presó</label>

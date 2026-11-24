@@ -34,7 +34,7 @@ export const BOARD = [
   S('Estació Renfe Rubí'),
   P('Riera de Rubí', 'taronja', 180, [25, 105, 300, 725, 845, 1070], 100),
   P("Parc de Ca n'Oriol", 'taronja', 200, [25, 120, 330, 790, 900, 1125], 100),
-  { type: 'tax', name: 'Multa', amount: 100 },
+  { type: 'parking', name: 'Pàrquing' },
   P('Castell de Rubí', 'vermell', 220, [25, 135, 375, 920, 985, 1180], 150),
   P('Plaça del Doctor Guardiet', 'vermell', 240, [30, 150, 450, 985, 1045, 1240], 150),
   S('Cremallera de Núria'),
@@ -116,7 +116,8 @@ export const RULES = {
   jailMaxTurns: 3, // torns màxims a la presó
   maxDie: 6,
   stationRent: [30, 60, 120, 200],
-  parkingPot: false,
+  parkingPot: true, // les multes (cartes, reparacions, sortir de la presó) van al pot del Pàrquing
+  potStart: 0, // diners amb què comença el pot a cada partida
   currency: '€',
   tilt: true,
   chanceDeck: 'mix', // mix | good | bad

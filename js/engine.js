@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795557882';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795558466';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -53,6 +53,15 @@ function migrate() {
   state.config.rules = { ...RULES, ...state.config.rules };
   if (state.config.rules.badName === 'Mal Rotllo') state.config.rules.badName = RULES.badName;
   state.config.groups = state.config.groups || clone(GROUPS);
+  // la cantonada de la Multa ara és el Pàrquing (amb el pot de multes)
+  const per = state.config.board.length / 4;
+  state.config.board.forEach((s, i) => {
+    if (s.type === 'tax' && i % per === 0) {
+      state.config.board[i] = { type: 'parking', name: 'Pàrquing' };
+      state.config.rules.parkingPot = true;
+    }
+  });
+  state.pot = state.pot || 0;
   state.queue = state.queue || [];
   state.started ??= state.log.length > 0;
   state.teams.forEach((t) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; });
@@ -96,6 +105,7 @@ export function startGame({ teams, rules: r }) {
     t.color = teams[k].color;
     t.money = state.config.rules.startMoney;
   });
+  state.pot = state.config.rules.parkingPot ? Math.max(0, Number(state.config.rules.potStart) || 0) : 0;
   state.started = true;
   log('Comença la partida. Sort a tots els equips!', 'info');
   save();
@@ -178,10 +188,12 @@ export function undo() {
 
 const push = (e) => fx.push(e);
 
+const POT_REASONS = ['multa', 'carta', 'presó', 'reparacions'];
 // from / to: índex d'equip, 'bank' o 'pot'
 function transfer(from, to, amount, reason) {
   if (!amount) return;
-  if (to === 'bank' && rules().parkingPot) to = 'pot';
+  // només les multes van al pot del Pàrquing (no les compres ni les cases)
+  if (to === 'bank' && rules().parkingPot && POT_REASONS.includes(reason) && state.config.board.some((s) => s.type === 'parking')) to = 'pot';
   if (typeof from === 'number') team(from).money -= amount;
   else if (from === 'pot') state.pot -= amount;
   if (typeof to === 'number') team(to).money += amount;
@@ -194,19 +206,23 @@ const name = (t) => team(t).name;
 // ---------- Moviment ----------
 function moveSteps(t, steps) {
   const T = team(t);
-  const path = [];
+  let path = [];
   let pos = T.pos;
   const dir = steps >= 0 ? 1 : -1;
   for (let k = 0; k < Math.abs(steps); k++) {
     pos = (pos + dir + N()) % N();
     path.push(pos);
     if (dir > 0 && pos === 0) {
+      // el moviment es para a la Sortida: es veu el cobrament i després continua
+      push({ type: 'move', team: t, path });
+      path = [];
+      push({ type: 'go', team: t, amount: rules().goSalary });
       transfer('bank', t, rules().goSalary);
       log(`${T.name} passa per la Sortida i cobra ${money(rules().goSalary)}.`, 'good');
     }
   }
   T.pos = pos;
-  push({ type: 'move', team: t, path });
+  if (path.length) push({ type: 'move', team: t, path });
 }
 
 function moveTo(t, target, collectGo = true) {
@@ -225,6 +241,7 @@ function sendToJail(t) {
   T.pos = jailIndex();
   T.jail = true;
   T.jailTurns = 0;
+  push({ type: 'siren', team: t });
   push({ type: 'move', team: t, path: [T.pos], jump: true });
   push({ type: 'banner', text: 'A la presó!', tone: 'bad', team: t });
   log(`${T.name} va a la presó.`, 'bad');
@@ -261,8 +278,8 @@ function land(t, front = false) {
       break;
     }
     case 'tax':
+      push({ type: 'tax', team: t, square: i, amount: s.amount });
       transfer(t, 'bank', s.amount, 'multa');
-      push({ type: 'banner', text: `Multa: ${money(s.amount)}`, tone: 'bad', team: t });
       log(`${T.name} paga una multa de ${money(s.amount)}.`, 'bad');
       break;
     case 'gotojail':
@@ -271,9 +288,12 @@ function land(t, front = false) {
     case 'parking':
       if (rules().parkingPot && state.pot > 0) {
         const p = state.pot;
+        push({ type: 'potwin', team: t, square: i, amount: p }); // les monedes del pot volen cap a l'equip
         transfer('pot', t, p, 'pot');
-        push({ type: 'banner', text: `Pot del pàrquing: ${money(p)}`, tone: 'good', team: t });
-        log(`${T.name} s'emporta el pot del pàrquing: ${money(p)}.`, 'good');
+        push({ type: 'banner', text: `Pot del Pàrquing: ${money(p)}`, tone: 'good', team: t, sub: `S'ho emporta ${T.name}` });
+        log(`${T.name} s'emporta el pot del Pàrquing: ${money(p)}.`, 'good');
+      } else if (rules().parkingPot) {
+        log(`${T.name} arriba al Pàrquing, però el pot és buit.`, 'info');
       }
       break;
     default:

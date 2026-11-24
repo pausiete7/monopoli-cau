@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557882';
-import { photoOf, initials } from './util.js?v=1795557882';
-import { deckName } from './data.js?v=1795557882';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795558466';
+import { photoOf, initials } from './util.js?v=1795558466';
+import { deckName } from './data.js?v=1795558466';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -404,6 +404,47 @@ function drawTax(ctx, x, y, w, h, s) {
   ctx.restore();
 }
 
+// Pàrquing: senyal blau amb la P i el text en diagonal (les monedes del pot hi van a sobre en 3D)
+function drawParking(ctx, x, y, w, h, name) {
+  ctx.fillStyle = '#EAF1FF';
+  ctx.fillRect(x, y, w, h);
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate(Math.PI / 4);
+  // senyal
+  ctx.save();
+  ctx.translate(0, -120);
+  roundRect(ctx, -120, -120, 240, 240, 36);
+  const sg = ctx.createLinearGradient(0, -120, 0, 120);
+  sg.addColorStop(0, '#3D7BFF');
+  sg.addColorStop(1, '#1E4FCC');
+  ctx.fillStyle = sg;
+  ctx.fill();
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = '#FFFFFF';
+  roundRect(ctx, -104, -104, 208, 208, 26);
+  ctx.stroke();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = INK;
+  roundRect(ctx, -120, -120, 240, 240, 36);
+  ctx.stroke();
+  setFont(ctx, 900, 200, 'normal');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', 0, 12);
+  ctx.restore();
+  setFont(ctx, 900, 92, 'semi-expanded');
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = INK;
+  ctx.fillText(name.toUpperCase(), 0, 90);
+  setFont(ctx, 800, 50, 'condensed');
+  ctx.fillStyle = '#5B5A7A';
+  ctx.fillText(rules().parkingPot ? "S'emporta el pot de multes" : 'Descans', 0, 165);
+  ctx.restore();
+}
+
 function drawGoToJail(ctx, x, y, w, h, name) {
   ctx.fillStyle = '#E9F1FF';
   ctx.fillRect(x, y, w, h);
@@ -567,6 +608,7 @@ export function drawBoard(canvas) {
       else if (cell.type === 'jail') drawJail(ctx, x, y, w, h, cell.name);
       else if (cell.type === 'tax') drawTax(ctx, x, y, w, h, cell);
       else if (cell.type === 'gotojail') drawGoToJail(ctx, x, y, w, h, cell.name);
+      else if (cell.type === 'parking') drawParking(ctx, x, y, w, h, cell.name);
       else { setFont(ctx, 900, 90); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.fillText(cell.name, x + w / 2, y + h / 2); }
     } else {
       const b = BAND * s;
@@ -989,6 +1031,9 @@ export function buildBoard() {
 
   // peons
   pawns.forEach((p) => scene.remove(p));
+  Object.keys(cages).forEach((k) => { scene.remove(cages[k]); delete cages[k]; });
+  if (potGroup) { scene.remove(potGroup); potGroup = null; }
+  potKey = '';
   pawns.length = 0;
   Object.values(plaques).forEach((p) => scene.remove(p.mesh));
   Object.keys(plaques).forEach((k) => delete plaques[k]);
@@ -1059,12 +1104,19 @@ function loop(now) {
     }
   });
   updateHalo(now);
+  // les gàbies segueixen la seva fitxa
+  Object.entries(cages).forEach(([k, g]) => { const p = pawns[k]; if (p) { g.position.x = p.position.x; g.position.z = p.position.z; } });
   // la càmera segueix el punt d'interès amb suavitat (sense salts)
   const a = reduced() ? 1 : 1 - Math.exp(-dt * 2.6);
   camCur.x += (camFocus.x - camCur.x) * a;
   camCur.z += (camFocus.z - camCur.z) * a;
   camCur.k += (camFocus.k - camCur.k) * (reduced() ? 1 : 1 - Math.exp(-dt * 2.2));
   placeCamera(baseDist, camCur.x, camCur.z, camCur.k);
+  if (now < shakeUntil) {
+    const f = (shakeUntil - now) / 600;
+    camera.position.x += Math.sin(now / 23) * shakeAmp * f;
+    camera.position.y += Math.cos(now / 31) * shakeAmp * f;
+  }
   renderer.render(scene, camera);
 }
 
@@ -1206,6 +1258,9 @@ export function refresh(animateHouses = false) {
     if (!animating.has(k)) p.position.copy(pawnTarget(k));
   });
   turnTeam = state.turn;
+  syncCages();
+  syncPot(animateHouses || potAnimNext);
+  potAnimNext = false;
 
   // plaques d'amo i cases
   for (let i = 0; i < N(); i++) {
@@ -1434,6 +1489,237 @@ export function coinBurst(i, n = 12, { power = 1 } = {}) {
   }
 }
 const rnd3 = (a) => (Math.random() * 2 - 1) * a;
+
+// ---------- Sortida, sirena, presó i tren ----------
+export function goBurst() {
+  if (!scene) return;
+  const c = center(rect(0));
+  pulse(0, 0xFFD84D);
+  sparkle(c.x, c.z, 26, 1.3);
+  coinBurst(0, 12, { power: 0.8 });
+}
+
+// tremolor de càmera
+let shakeAmp = 0;
+let shakeUntil = 0;
+function shake(amp = 0.06, dur = 500) {
+  if (reduced()) return;
+  shakeAmp = amp;
+  shakeUntil = performance.now() + dur;
+}
+
+// sirena a la cantonada «Ves a la presó»: llum vermella i blava que gira
+export function siren() {
+  if (!scene || reduced()) return;
+  const i = state.config.board.findIndex((s) => s.type === 'gotojail');
+  if (i < 0) return;
+  const c = center(rect(i));
+  const g = new THREE.Group();
+  const domeMat = new THREE.MeshStandardMaterial({ color: 0xFF3B3B, emissive: 0xFF2020, emissiveIntensity: 1.5, transparent: true, opacity: 0.95 });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 24), new THREE.MeshStandardMaterial({ color: 0x2A2C5E }));
+  base.position.y = 0.05;
+  dome.position.y = 0.1;
+  const beamMat = new THREE.MeshBasicMaterial({ color: 0xFF4040, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.2, 24, 1, true), beamMat);
+  beam.rotation.z = Math.PI / 2;
+  beam.position.set(1.1, 0.25, 0);
+  const pivot = new THREE.Group();
+  pivot.add(beam);
+  pivot.position.y = 0.2;
+  const light = new THREE.PointLight(0xff3030, 6, 4);
+  light.position.y = 0.5;
+  g.add(base, dome, pivot, light);
+  g.position.set(c.x, 0.02, c.z);
+  g.scale.set(0.01, 0.01, 0.01);
+  scene.add(g);
+  shake(0.05, 900);
+  tween(2200, (t) => {
+    const s = t < 0.12 ? ease.back(t / 0.12) : t > 0.88 ? 1 - (t - 0.88) / 0.12 : 1;
+    g.scale.set(s, s, s);
+    pivot.rotation.y = t * Math.PI * 7;
+    const blue = Math.floor(t * 14) % 2 === 1;
+    const col = blue ? 0x3060FF : 0xFF3030;
+    light.color.setHex(col);
+    beamMat.color.setHex(col);
+    domeMat.emissive.setHex(blue ? 0x2040FF : 0xFF2020);
+  }, ease.linear).then(() => scene.remove(g));
+}
+
+// ---------- Pot del Pàrquing: piles de monedes que creixen ----------
+let potGroup = null;
+let potAnimNext = false;
+export const animatePotNext = () => { potAnimNext = true; };
+let potKey = '';
+const parkingIndex = () => state.config.board.findIndex((s) => s.type === 'parking');
+function potLabelTexture(amount) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 200;
+  const g = c.getContext('2d');
+  roundRect(g, 10, 10, 492, 180, 60);
+  g.fillStyle = '#1C1A3A';
+  g.fill();
+  g.lineWidth = 10;
+  g.strokeStyle = '#FFD84D';
+  g.stroke();
+  setFont(g, 800, 46, 'normal');
+  g.fillStyle = '#FFD84D';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('POT', 256, 62);
+  setFont(g, 900, 74, 'normal');
+  g.fillStyle = '#FFFFFF';
+  g.fillText(money(amount), 256, 130);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function syncPot(animate) {
+  const i = parkingIndex();
+  const on = i >= 0 && rules().parkingPot;
+  const amount = on ? state.pot || 0 : 0;
+  const key = `${i}|${on}|${amount}`;
+  if (key === potKey) return;
+  const before = Number(potKey.split('|')[2] || 0);
+  potKey = key;
+  if (potGroup) { scene.remove(potGroup); potGroup = null; }
+  if (!on) return;
+  const c = center(rect(i));
+  potGroup = new THREE.Group();
+  // les monedes: fins a 6 piles, d'una moneda cada 20 €
+  coinGeo = coinGeo || new THREE.CylinderGeometry(0.15, 0.15, 0.035, 28);
+  coinMat = coinMat || new THREE.MeshStandardMaterial({ color: 0xFFC83D, metalness: 0.85, roughness: 0.28, emissive: 0x3a2400, emissiveIntensity: 0.3 });
+  const coins = Math.min(60, Math.ceil(amount / 20));
+  const stacks = [[0, 0], [0.32, 0.05], [-0.3, 0.1], [0.12, 0.33], [-0.15, -0.3], [0.3, -0.28]];
+  const newCoins = animate && amount > before ? Math.min(coins, Math.ceil((amount - before) / 20)) : 0;
+  for (let k = 0; k < coins; k++) {
+    const s = stacks[k % stacks.length];
+    const level = Math.floor(k / stacks.length);
+    const m = new THREE.Mesh(coinGeo, coinMat);
+    m.castShadow = true;
+    const y = 0.02 + level * 0.038;
+    m.position.set(s[0] + Math.sin(k * 7.1) * 0.015, y, s[1] + Math.cos(k * 3.7) * 0.015);
+    m.rotation.y = k * 0.7;
+    potGroup.add(m);
+    if (k >= coins - newCoins && !reduced()) {
+      m.position.y = y + 1.4;
+      setTimeout(() => tween(450, (t) => { m.position.y = y + (1 - t) * 1.4; }, ease.bounce), (k - (coins - newCoins)) * 60);
+    }
+  }
+  if (amount > 0) {
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: potLabelTexture(amount), depthWrite: false }));
+    label.scale.set(1.35, 0.53, 1);
+    label.position.set(0, 0.55 + Math.floor(coins / stacks.length) * 0.038, 0);
+    label.renderOrder = 12;
+    potGroup.add(label);
+  }
+  // les monedes queden a la part de dins de la cantonada (cap al centre del tauler)
+  potGroup.position.set(c.x + 0.4, 0, c.z + 0.4);
+  scene.add(potGroup);
+}
+
+// qui cau al Pàrquing s'emporta el pot: les monedes volen cap a la seva fitxa
+export function potWin(teamIdx) {
+  const i = parkingIndex();
+  if (i < 0 || !scene) return;
+  coinBurst(i, 18, { power: 0.9 });
+  const p = pawns[teamIdx];
+  if (p) sparkle(p.position.x, p.position.z, 18, 1);
+  shake(0.03, 400);
+}
+
+// gàbies de barrots damunt dels equips empresonats
+const cages = {};
+let cageMat = null;
+function makeCage() {
+  cageMat = cageMat || new THREE.MeshStandardMaterial({ color: 0xC9CDDA, metalness: 0.8, roughness: 0.3 });
+  const g = new THREE.Group();
+  const n = 9;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.78, 6), cageMat);
+    bar.position.set(Math.cos(a) * 0.25, 0.39, Math.sin(a) * 0.25);
+    bar.castShadow = true;
+    g.add(bar);
+  }
+  [0.02, 0.78].forEach((y) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.018, 8, 36), cageMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = y;
+    g.add(ring);
+  });
+  const lid = new THREE.Mesh(new THREE.CircleGeometry(0.25, 28), cageMat);
+  lid.rotation.x = -Math.PI / 2;
+  lid.position.y = 0.78;
+  g.add(lid);
+  return g;
+}
+function syncCages() {
+  state.teams.forEach((t, k) => {
+    const want = t.jail && !t.bankrupt && displayPos?.[k]?.jail && pawns[k];
+    if (want && !cages[k]) {
+      const g = makeCage();
+      const p = pawns[k].position;
+      g.position.set(p.x, reduced() ? 0 : 1.6, p.z);
+      scene.add(g);
+      cages[k] = g;
+      if (!reduced()) {
+        tween(700, (q) => { g.position.y = (1 - q) * 1.6; }, ease.bounce).then(() => { dustPuff(g.position.x, g.position.z, 8, 0.35); sfxHook?.('build'); });
+      }
+    } else if (!want && cages[k]) {
+      const g = cages[k];
+      delete cages[k];
+      tween(reduced() ? 1 : 600, (q) => { g.position.y = q * 1.8; g.scale.setScalar(1 - q * 0.5); }, ease.inOut).then(() => scene.remove(g));
+    }
+  });
+}
+
+// trenet que passa per les vies d'una estació
+let trainProto = null;
+function makeTrain() {
+  if (trainProto) return trainProto.clone();
+  const g = new THREE.Group();
+  const red = new THREE.MeshStandardMaterial({ color: 0xE8473B, roughness: 0.4 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xF5F5FA, roughness: 0.5 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1C2756, roughness: 0.3 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x1C1A3A, roughness: 0.6 });
+  const yellow = new THREE.MeshStandardMaterial({ color: 0xFFE7A0, emissive: 0xFFC94D, emissiveIntensity: 0.8 });
+  g.add(box(0.46, 0.12, 0.15, white, 0, 0.09, 0));
+  g.add(box(0.46, 0.035, 0.155, red, 0, 0.065, 0));
+  g.add(box(0.44, 0.03, 0.13, red, 0, 0.165, 0));
+  for (let k = 0; k < 4; k++) g.add(box(0.06, 0.04, 0.157, dark, -0.15 + k * 0.1, 0.11, 0));
+  g.add(box(0.01, 0.025, 0.04, yellow, 0.235, 0.07, 0.04));
+  g.add(box(0.01, 0.025, 0.04, yellow, 0.235, 0.07, -0.04));
+  [-0.14, 0.14].forEach((x) => [-0.06, 0.06].forEach((z) => {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.02, 12), black);
+    w.rotation.x = Math.PI / 2;
+    w.position.set(x, 0.03, z);
+    g.add(w);
+  }));
+  trainProto = g;
+  return g.clone();
+}
+export function train(i) {
+  if (!scene || reduced()) return;
+  const r = rect(i);
+  const along = r.side === 'b' || r.side === 't';
+  let cx; let cz;
+  if (r.side === 'b') cz = r.z0 + BAND / 2; else if (r.side === 't') cz = r.z1 - BAND / 2;
+  if (r.side === 'l') cx = r.x1 - BAND / 2; else if (r.side === 'r') cx = r.x0 + BAND / 2;
+  const m = makeTrain();
+  m.scale.setScalar(0.85);
+  if (!along) m.rotation.y = Math.PI / 2;
+  scene.add(m);
+  const a0 = along ? r.x0 - 0.15 : r.z1 + 0.15;
+  const a1 = along ? r.x1 + 0.15 : r.z0 - 0.15;
+  tween(1500, (t) => {
+    const a = a0 + (a1 - a0) * t;
+    if (along) m.position.set(a, 0.005, cz); else m.position.set(cx, 0.005, a);
+    const s = 0.85 * Math.min(1, t / 0.15, (1 - t) / 0.15);
+    m.scale.setScalar(Math.max(0.01, s));
+    m.position.y = 0.005 + Math.abs(Math.sin(t * 40)) * 0.006;
+  }, ease.inOut).then(() => scene.remove(m));
+}
 
 // on van les piles de cartes: amb foto al centre, a les cantonades de baix (i més petites) per no tapar cares
 function placeDecks() {
