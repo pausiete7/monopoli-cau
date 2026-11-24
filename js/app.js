@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795554820';
+import * as G from './engine.js?v=1795555334';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795554820';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795554820';
-import * as S3 from './scene.js?v=1795554820';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795554820';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795554820';
+} from './board.js?v=1795555334';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795555334';
+import * as S3 from './scene.js?v=1795555334';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795555334';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795555334';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -44,7 +44,8 @@ async function openQueue() {
     sfx.flip();
     const c = G.cardOf(q);
     try { await drawCardFx(q.deck, { text: c?.text, foot: c ? effectSummary(c) : '' }); await new Promise((r) => setTimeout(r, 250)); } finally { drawing = false; }
-    if (S().queue[0] === q && !dlg.open) cardModal(q);
+    if (S().queue[0] === q && !dlg.open) cardModal(q, S3.currentCardId());
+    else S3.dropCard();
   }
 }
 
@@ -52,6 +53,7 @@ async function openQueue() {
 function openModal({ title, body, foot = '', wide = false, onMount }) {
   dlg.className = `modal${wide ? ' wide' : ''}`;
   delete dlg.dataset.keep;
+  if (dlg.dataset.cardId) { S3.dropCard(false, Number(dlg.dataset.cardId)); delete dlg.dataset.cardId; }
   dlg.innerHTML = `<div class="m-wrap">
     <div class="m-head"><h2>${title}</h2><button class="icon-btn m-close" type="button" data-close aria-label="Tancar">${icon('close')}</button></div>
     <div class="m-body">${body}</div>
@@ -63,7 +65,9 @@ function openModal({ title, body, foot = '', wide = false, onMount }) {
 }
 dlg.addEventListener('close', () => {
   // si es tanca una finestra d'acció pendent, el botó «Continuar» del centre la torna a obrir
-  if (!dlg.dataset.keep) S3.dropCard();
+  const id = dlg.dataset.cardId;
+  delete dlg.dataset.cardId;
+  if (id && !dlg.dataset.keep) S3.dropCard(false, Number(id));
   renderCenter();
 });
 dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
@@ -240,7 +244,7 @@ function effectSummary(c) {
   }
 }
 
-function cardModal(q) {
+function cardModal(q, cardId = null) {
   const c = G.cardOf(q);
   const T = G.team(q.team);
   const good = q.deck === 'good';
@@ -258,9 +262,10 @@ function cardModal(q) {
       </div></div>`,
     foot: `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
     onMount(d) {
+      if (cardId !== null) dlg.dataset.cardId = String(cardId);
       setTimeout(() => (good ? sfx.good() : sfx.bad()), 450);
       const b = d.querySelector('[data-a=apply]');
-      b.addEventListener('click', () => { S3.dropCard(); G.applyCard(); after(); });
+      b.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(); after(); });
       b.focus();
     },
   });

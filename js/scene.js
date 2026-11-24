@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795554820';
-import { photoOf, initials } from './util.js?v=1795554820';
-import { deckName } from './data.js?v=1795554820';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795555334';
+import { photoOf, initials } from './util.js?v=1795555334';
+import { deckName } from './data.js?v=1795555334';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1411,7 +1411,7 @@ export async function drawCard(deck, card) {
   pivot.position.copy(start);
   pivot.rotation.y = d.group.rotation.y;
   scene.add(pivot);
-  liveCard = { pivot, mesh, mats: [side, backM, faceM] };
+  liveCard = { pivot, mesh, mats: [side, backM, faceM], id: ++cardSeq };
   // 1) s'aixeca de la pila; 2) ve cap a tu mentre es gira de cap per avall a cap per amunt, sempre plana
   const lifted = new THREE.Vector3(start.x, start.y + 0.45, start.z);
   const toward = new THREE.Vector3().lerpVectors(new THREE.Vector3(0, 0.6, 0.6), camera.position, 0.5);
@@ -1427,9 +1427,12 @@ export async function drawCard(deck, card) {
   }, ease.inOut);
 }
 
-// la carta torna a la pila (o desapareix) quan ja s'ha llegit
-export function dropCard(instant = false) {
-  if (!liveCard) return;
+// la carta se'n va quan ja s'ha llegit; amb id, només si encara és aquella carta
+// (així tancar una finestra no fa fora la carta següent mentre s'està girant)
+let cardSeq = 0;
+export const currentCardId = () => liveCard?.id ?? null;
+export function dropCard(instant = false, id = null) {
+  if (!liveCard || (id !== null && liveCard.id !== id)) return;
   const { pivot, mesh, mats } = liveCard;
   liveCard = null;
   const done = () => { scene.remove(pivot); mesh.geometry.dispose(); mats.forEach((m) => { m.map?.dispose(); m.dispose(); }); };
