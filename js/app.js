@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795556165';
+import * as G from './engine.js?v=1795556498';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795556165';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795556165';
-import * as S3 from './scene.js?v=1795556165';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795556165';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795556165';
+} from './board.js?v=1795556498';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795556498';
+import * as S3 from './scene.js?v=1795556498';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795556498';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795556498';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -607,7 +607,14 @@ function resizePhoto(file) {
 function settingsModal(tab = 'teams') {
   const draft = clone(S().config);
   const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
-  const tabs = { teams: 'Equips', board: 'Tauler', cards: 'Cartes', rules: 'Regles', game: 'Partida' };
+  const tabs = { teams: 'Equips', board: 'Tauler', cards: 'Cartes', rules: 'Regles', sounds: 'Sons', game: 'Partida' };
+  const soundsHTML = () => `<p class="note">Escolteu cada so amb el botó. Els que no us agradin, els podeu apagar; es guarda al moment en aquest ordinador.</p>
+    <label class="field"><span>Volum general</span><input type="range" id="vol" data-vol min="0" max="100" value="${Math.round(getVolume() * 100)}"></label>
+    <div class="snd-list">${Object.entries(SOUNDS).map(([k, s]) => `<div class="snd">
+      <button class="btn snd-play" type="button" data-play="${k}" aria-label="Escoltar ${esc(s.name)}">${icon('volume')}</button>
+      <div><b>${esc(s.name)}</b><div class="muted">${esc(s.when)}</div></div>
+      <label class="check"><input type="checkbox" data-soff="${k}" ${isOff(k) ? '' : 'checked'}> Actiu</label>
+    </div>`).join('')}</div>`;
 
   const teamsHTML = () => `<p class="note">Les fotos només es guarden en aquest navegador: no es pugen a internet. Si canvieu d'ordinador, les haureu de tornar a posar.</p>
     <div class="cfg-grid">${teams.map((t, k) => `<div class="cfg-team">
@@ -669,7 +676,7 @@ function settingsModal(tab = 'teams') {
     <p class="muted">Torna a posar el tauler i les cartes d'exemple (perdreu els que hàgiu escrit).</p>
     <button class="btn" type="button" data-g="defaults">Recuperar el tauler i les cartes d'exemple</button>`;
 
-  const views = { teams: teamsHTML, board: boardHTML, cards: cardsHTML, rules: rulesHTML, game: gameHTML };
+  const views = { teams: teamsHTML, board: boardHTML, cards: cardsHTML, rules: rulesHTML, sounds: soundsHTML, game: gameHTML };
   let current = tab;
 
   openModal({
@@ -737,6 +744,10 @@ function settingsModal(tab = 'teams') {
         }
       });
 
+      // pestanya Sons: s'aplica al moment (no depèn de «Desar els canvis»)
+      bodyEl.addEventListener('input', (e) => { if (e.target.dataset.vol !== undefined) setVolume(Number(e.target.value) / 100); });
+      bodyEl.addEventListener('change', (e) => { if (e.target.dataset.soff !== undefined) setOff(e.target.dataset.soff, !e.target.checked); });
+      bodyEl.addEventListener('click', (e) => { const p = e.target.closest('[data-play]'); if (p) preview(p.dataset.play); });
       bodyEl.addEventListener('click', (e) => {
         const el = e.target.closest('button');
         if (!el) return;

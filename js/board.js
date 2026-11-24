@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795556165';
-import * as S3 from './scene.js?v=1795556165';
-import { sfx } from './sound.js?v=1795556165';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795556165';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795556498';
+import * as S3 from './scene.js?v=1795556498';
+import { sfx } from './sound.js?v=1795556498';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795556498';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -352,6 +352,10 @@ export async function playFx() {
           break;
         case 'banner':
           if (/presó/i.test(e.text)) sfx.jail();
+          else if (/fallida/i.test(e.text)) sfx.bankrupt();
+          else if (/^guanya/i.test(e.text)) sfx.winner();
+          else if (/adjudicat/i.test(e.text)) sfx.gavel();
+          else if (/multa/i.test(e.text)) sfx.stamp();
           else if (e.tone === 'good') sfx.good();
           await banner(e.text, e.tone, e.sub);
           break;

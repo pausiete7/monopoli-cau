@@ -858,6 +858,11 @@ input[type=color] { width: 54px; height: 46px; padding: 2px; border: 2px solid v
 .cfg-photo svg { width: 30px; height: 30px; }
 .cfg-photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .cfg-sq { display: grid; grid-template-columns: 40px 14px 1fr 96px 1.2fr; gap: 8px; align-items: center; padding: 4px 0; }
+.snd-list { display: grid; gap: 8px; }
+.snd { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 8px 12px; border-radius: 14px; background: var(--paper-2); }
+.snd .muted { font-size: 14px; }
+.snd-play { min-width: 48px; padding: 6px 10px; }
+input[type=range] { width: 100%; accent-color: var(--red); }
 .cfg-head { font-size: 13px; font-weight: 700; color: var(--ink-soft); padding-bottom: 0; }
 .cfg-side { margin: 16px 0 4px; font-size: 16px; padding-top: 12px; border-top: 2px solid var(--paper-2); }
 .cfg-side .muted { font-weight: 400; font-size: 14px; }
