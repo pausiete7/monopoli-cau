@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557515';
-import { photoOf, initials } from './util.js?v=1795557515';
-import { deckName } from './data.js?v=1795557515';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557882';
+import { photoOf, initials } from './util.js?v=1795557882';
+import { deckName } from './data.js?v=1795557882';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -460,7 +460,24 @@ function drawGoToJail(ctx, x, y, w, h, name) {
   ctx.restore();
 }
 
+let centerImg = null; // foto opcional per al centre del tauler (només en aquest navegador)
+
 function drawCenter(ctx, x, y, w, h) {
+  if (centerImg) {
+    // la foto omple el centre (retallada perquè hi càpiga) i el logotip queda a sobre
+    const ir = centerImg.width / centerImg.height;
+    let sw = centerImg.width; let sh = centerImg.height; let sx = 0; let sy = 0;
+    if (ir > w / h) { sw = centerImg.height * (w / h); sx = (centerImg.width - sw) / 2; } else { sh = centerImg.width / (w / h); sy = (centerImg.height - sh) / 2; }
+    ctx.drawImage(centerImg, sx, sy, sw, sh, x, y, w, h);
+    // una mica de llum a dalt perquè el logotip es llegeixi bé sobre qualsevol foto
+    const fade = ctx.createLinearGradient(0, y, 0, y + h * 0.42);
+    fade.addColorStop(0, 'rgba(255,255,255,.55)');
+    fade.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(x, y, w, h * 0.42);
+    drawLogo(ctx, x, y, w, h);
+    return;
+  }
   const g = ctx.createRadialGradient(x + w / 2, y + h * 0.4, 50, x + w / 2, y + h / 2, w * 0.75);
   g.addColorStop(0, '#F3F7FF');
   g.addColorStop(1, '#D9E3F7');
@@ -483,7 +500,10 @@ function drawCenter(ctx, x, y, w, h) {
   };
   rings(x + w * 0.2, y + h * 0.82, 7, w * 0.32, h * 0.2, -0.2);
   rings(x + w * 0.82, y + h * 0.18, 6, w * 0.28, h * 0.17, 0.3);
-  // logotip
+  drawLogo(ctx, x, y, w, h);
+}
+
+function drawLogo(ctx, x, y, w, h) {
   const cx = x + w / 2;
   const ty = y + h * 0.17;
   ctx.save();
@@ -930,6 +950,13 @@ export function buildBoard() {
     img.onload = () => { jailImg = img; drawBoard(boardCanvas); boardTex.needsUpdate = true; };
     img.src = jp;
   } else if (!jp) jailImg = null;
+  // foto del centre del tauler (opcional)
+  const cp = photoOf('center');
+  if (cp && (!centerImg || centerImg.src !== cp)) {
+    const img = new Image();
+    img.onload = () => { centerImg = img; drawBoard(boardCanvas); boardTex.needsUpdate = true; placeDecks(); };
+    img.src = cp;
+  } else if (!cp) centerImg = null;
   drawBoard(boardCanvas);
   boardTex = new THREE.CanvasTexture(boardCanvas);
   boardTex.colorSpace = THREE.SRGBColorSpace;
@@ -953,12 +980,12 @@ export function buildBoard() {
     stack.castShadow = true;
     stack.receiveShadow = true;
     g.add(stack);
-    g.position.set(k ? 1.35 : -1.35, 0, 0.95);
     g.rotation.y = k ? -0.14 : 0.12;
     g.userData = { deck: d, topMat };
     scene.add(g);
     decks[d] = { group: g, stack, topMat, count: -1 };
   });
+  placeDecks();
 
   // peons
   pawns.forEach((p) => scene.remove(p));
@@ -1407,6 +1434,15 @@ export function coinBurst(i, n = 12, { power = 1 } = {}) {
   }
 }
 const rnd3 = (a) => (Math.random() * 2 - 1) * a;
+
+// on van les piles de cartes: amb foto al centre, a les cantonades de baix (i més petites) per no tapar cares
+function placeDecks() {
+  ['good', 'bad'].forEach((d, k) => {
+    const g = decks[d]?.group;
+    if (!g) return;
+    if (centerImg) { g.position.set(k ? 1.9 : -1.9, 0, 1.78); g.scale.set(0.78, 0.78, 0.78); } else { g.position.set(k ? 1.35 : -1.35, 0, 0.95); g.scale.set(1, 1, 1); }
+  });
+}
 
 // núvol de pols on cau una casa
 let dustMat = null;

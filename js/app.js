@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795557515';
+import * as G from './engine.js?v=1795557882';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795557515';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795557515';
-import * as S3 from './scene.js?v=1795557515';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795557515';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795557515';
+} from './board.js?v=1795557882';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795557882';
+import * as S3 from './scene.js?v=1795557882';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795557882';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795557882';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -586,22 +586,54 @@ function logModal() {
 }
 
 // ---------- Configuració ----------
-function resizePhoto(file) {
+// foto quadrada petita (equips, presó) o, amb large, la foto sencera fins a 1800 px (centre del tauler)
+function resizePhoto(file, large = false) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const size = 320;
       const c = document.createElement('canvas');
-      c.width = size; c.height = size;
-      const s = Math.min(img.width, img.height);
-      c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      if (large) {
+        const k = Math.min(1, 1800 / Math.max(img.width, img.height));
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      } else {
+        const size = 320;
+        c.width = size; c.height = size;
+        const s = Math.min(img.width, img.height);
+        c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      }
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.82));
+      resolve(c.toDataURL('image/jpeg', large ? 0.85 : 0.82));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No és una imatge.')); };
     img.src = url;
   });
+}
+
+// fotos del tauler: presó i centre (només es guarden en aquest navegador)
+const BOARD_PHOTOS = {
+  center: { title: 'Foto del centre del tauler', hint: 'Una foto del grup: ocupa tot el centre, sota el logotip.', icon: 'camera', color: '#2D7FF9' },
+  jail: { title: 'Foto per a la presó', hint: "Opcional: la cara d'un moni darrere els barrots.", icon: 'lock', color: '#FFB020' },
+};
+const boardPhotosHTML = () => Object.entries(BOARD_PHOTOS).map(([id, p]) => {
+  const ph = photoOf(id);
+  return `<div class="cfg-team" style="--tc:${p.color};margin-top:8px;grid-template-columns:64px 1fr auto">
+    <label class="cfg-photo" style="width:64px;height:64px;--tc:${p.color};${ph ? `background-image:url(${ph})` : ''}" title="${p.title}">${ph ? '' : icon(p.icon)}
+      <input type="file" accept="image/*" data-photo="${id}" aria-label="${p.title}"></label>
+    <div><b>${p.title}</b><div class="muted">${p.hint}</div></div>
+    ${ph ? `<button class="btn btn-ghost" type="button" data-noboardphoto="${id}">Treure</button>` : '<span></span>'}
+  </div>`;
+}).join('');
+
+// carrega una foto triada: d'un equip (índex) o del tauler (presó, centre)
+async function loadPhoto(input, teams) {
+  const key = input.dataset.photo;
+  const isBoard = key in BOARD_PHOTOS;
+  const url = await resizePhoto(input.files[0], key === 'center');
+  const id = isBoard ? key : teams[key].id;
+  if (!setPhoto(id, url)) toast("No s'ha pogut desar la foto: el navegador no té espai.");
+  if (isBoard) buildBoard();
 }
 
 function settingsModal(tab = 'teams') {
@@ -622,7 +654,9 @@ function settingsModal(tab = 'teams') {
         <input type="file" accept="image/*" data-photo="${k}" aria-label="Foto de ${esc(t.name)}"></label>
       <div class="field" style="margin:0"><span>Nom</span><input type="text" data-tname="${k}" value="${esc(t.name)}" maxlength="28"></div>
       <div class="row"><input type="color" data-tcolor="${k}" value="${t.color}" aria-label="Color">${photoOf(t.id) ? `<button class="btn btn-ghost" type="button" data-nophoto="${k}">Treure foto</button>` : ''}</div>
-    </div>`).join('')}</div>`;
+    </div>`).join('')}</div>
+    <h3 class="label" style="margin-top:18px">Fotos del tauler</h3>
+    ${boardPhotosHTML()}`;
 
   const per = draft.board.length / 4;
   const sides = ['Costat de baix', "Costat de l'esquerra", 'Costat de dalt', 'Costat de la dreta'];
@@ -728,7 +762,7 @@ function settingsModal(tab = 'teams') {
         const el = e.target;
         if (el.dataset.photo !== undefined && el.files[0]) {
           try {
-            setPhoto(teams[el.dataset.photo].id, await resizePhoto(el.files[0]));
+            await loadPhoto(el, teams);
             show();
             full();
           } catch (err) { toast(err.message); }
@@ -753,6 +787,7 @@ function settingsModal(tab = 'teams') {
         if (!el) return;
         const ds = el.dataset;
         if (ds.nophoto !== undefined) { setPhoto(teams[ds.nophoto].id, ''); show(); full(); }
+        if (ds.noboardphoto !== undefined) { setPhoto(ds.noboardphoto, ''); show(); buildBoard(); full(); }
         if (ds.cdel !== undefined) {
           const [dk, k] = ds.cdel.split(':');
           if (draft.cards[dk].length <= 1) { toast('Cal deixar com a mínim una carta.'); return; }
@@ -836,12 +871,7 @@ function setupModal() {
         <label class="jr-val" ${vals.jailRoll ? '' : 'hidden'}><span>Número</span><input type="number" data-r="jailExitRoll" value="${vals.jailExitRoll}" step="1" min="1" max="12"></label></div>
       <p class="muted">La carta de ${esc(deckName(r, 'good'))} per quedar lliure de la presó sempre funciona.${!vals.jailPay && !vals.jailRoll ? ` Sense cap opció, se surt després de ${vals.jailMaxTurns} torns.` : ''}</p>
     </div>
-    <div class="cfg-team" style="--tc:#FFB020;margin-top:8px;grid-template-columns:64px 1fr auto">
-      <label class="cfg-photo" style="width:64px;height:64px;--tc:#FFB020;${photoOf('jail') ? `background-image:url(${photoOf('jail')})` : ''}" title="Foto per a la presó">${photoOf('jail') ? '' : icon('lock')}
-        <input type="file" accept="image/*" data-photo="jail" aria-label="Foto per a la presó"></label>
-      <div><b>Foto per a la presó</b><div class="muted">Opcional: la cara d'un moni darrere els barrots.</div></div>
-      ${photoOf('jail') ? '<button class="btn btn-ghost" type="button" data-nojail>Treure</button>' : '<span></span>'}
-    </div>
+    ${boardPhotosHTML()}
     <p class="muted" style="margin-top:14px">Les fotos es guarden només en aquest ordinador; no es pugen a internet. Les cartes, el tauler i la resta de regles són a Configuració.</p>`;
   openModal({
     title: 'Preparem la partida',
@@ -864,16 +894,14 @@ function setupModal() {
         const el = e.target;
         if (el.dataset.photo === undefined || !el.files[0]) return;
         try {
-          const url = await resizePhoto(el.files[0]);
-          const id = el.dataset.photo === 'jail' ? 'jail' : teams[el.dataset.photo].id;
-          if (!setPhoto(id, url)) toast("No s'ha pogut desar la foto: el navegador no té espai.");
+          await loadPhoto(el, teams);
           show();
-          if (id === 'jail') buildBoard();
           full();
         } catch (err) { toast(err.message); }
       });
       box.addEventListener('click', (e) => {
-        if (e.target.closest('[data-nojail]')) { setPhoto('jail', ''); show(); buildBoard(); full(); }
+        const b = e.target.closest('[data-noboardphoto]');
+        if (b) { setPhoto(b.dataset.noboardphoto, ''); show(); buildBoard(); full(); }
       });
       d.querySelector('[data-a=adv]').addEventListener('click', () => settingsModal('rules'));
       d.querySelector('[data-a=go]').addEventListener('click', () => {
