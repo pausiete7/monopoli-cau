@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795548661';
-import { photoOf, initials } from './util.js?v=1795548661';
-import { deckName } from './data.js?v=1795548661';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795549094';
+import { photoOf, initials } from './util.js?v=1795549094';
+import { deckName } from './data.js?v=1795549094';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -831,7 +831,8 @@ let displayPos = null;
 const animating = new Set();
 let handlers = {};
 const camTarget = new THREE.Vector3(0, 0, 0.12);
-const camFocus = { x: 0, z: 0, k: 0 };
+const camFocus = { x: 0, z: 0, k: 0 }; // on vol anar la càmera
+const camCur = { x: 0, z: 0, k: 0 }; // on és ara (s'hi acosta a poc a poc)
 let baseDist = 12;
 const ELEV = THREE.MathUtils.degToRad(58);
 let turnTeam = -1;
@@ -987,7 +988,7 @@ function fit() {
     if (ok) hi = d; else lo = d;
   }
   baseDist = hi;
-  placeCamera(baseDist, camFocus.x, camFocus.z, camFocus.k);
+  placeCamera(baseDist, camCur.x, camCur.z, camCur.k);
 }
 
 function placeCamera(d, fx, fz, k) {
@@ -1025,7 +1026,12 @@ function loop(now) {
       inner.position.y += (0 - inner.position.y) * 0.2;
     }
   });
-  placeCamera(baseDist, camFocus.x, camFocus.z, camFocus.k);
+  // la càmera segueix el punt d'interès amb suavitat (sense salts)
+  const a = reduced() ? 1 : 1 - Math.exp(-dt * 2.6);
+  camCur.x += (camFocus.x - camCur.x) * a;
+  camCur.z += (camFocus.z - camCur.z) * a;
+  camCur.k += (camFocus.k - camCur.k) * (reduced() ? 1 : 1 - Math.exp(-dt * 2.2));
+  placeCamera(baseDist, camCur.x, camCur.z, camCur.k);
   renderer.render(scene, camera);
 }
 
@@ -1260,9 +1266,8 @@ function relayout(positions, except) {
 }
 
 export function focus(on) {
-  const from = camFocus.k;
-  const target = on ? 1 : 0;
-  return tween(on ? 500 : 700, (t) => { camFocus.k = from + (target - from) * t; }, ease.inOut);
+  camFocus.k = on ? 1 : 0;
+  return Promise.resolve();
 }
 
 export function pulse(i, color = 0xFFD84D) {

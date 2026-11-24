@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795548661';
-import * as S3 from './scene.js?v=1795548661';
-import { sfx } from './sound.js?v=1795548661';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795548661';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795549094';
+import * as S3 from './scene.js?v=1795549094';
+import { sfx } from './sound.js?v=1795549094';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795549094';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -115,18 +115,25 @@ export const renderCenter = renderDock;
 const shownMoney = {};
 export function renderTeams() {
   const html = (t, k) => {
+    // títols de propietat en miniatura, posats un al costat de l'altre com damunt la taula
     const props = propsOf(k);
-    let chips = '';
-    let lastG = null;
-    props.forEach((i) => {
+    const n = props.length;
+    const cardW = 58;
+    const room = 270;
+    const gap = n > 1 ? Math.max(-34, Math.min(6, (room - cardW * n) / (n - 1))) : 0;
+    const chips = props.map((i, j) => {
       const s = sq(i);
       const o = state.owners[i];
-      const g = s.type === 'station' ? '__st' : s.group;
-      if (lastG !== null && g !== lastG) chips += '<span class="chip-gap"></span>';
-      lastG = g;
       const color = s.type === 'station' ? '#2A2C5E' : state.config.groups[s.group]?.color;
-      chips += `<span class="chip${o.mortgaged ? ' mort' : ''}" style="--g:${color}" title="${esc(s.name)}">${o.houses ? (o.houses === 5 ? 'H' : o.houses) : ''}</span>`;
-    });
+      const light = s.group === 'groc' || s.group === 'cel';
+      const houses = o.houses === 5 ? '<i class="h hotel"></i>' : '<i class="h"></i>'.repeat(o.houses || 0);
+      const rot = ((i * 37) % 7) - 3;
+      const key = `${k}:${i}`;
+      const fresh = seenDeeds.ready && !seenDeeds.has(key);
+      seenDeeds.add(key);
+      return `<span class="mdeed${fresh ? ' new' : ''}${o.mortgaged ? ' mort' : ''}${s.type === 'station' ? ' st' : ''}" style="--g:${color};--r:${rot}deg;${j ? `margin-left:${gap}px;` : ''}z-index:${j + 1}" title="${esc(s.name)}">
+        <b class="${light ? 'light' : ''}">${houses}</b><em>${esc(s.name)}</em>${o.mortgaged ? '<small>Hipotecada</small>' : ''}</span>`;
+    }).join('');
     const tags = [];
     if (t.bankrupt) tags.push('<span class="tag bad">En fallida</span>');
     if (t.jail) tags.push(`<span class="tag bad">${icon('lock')}A la presó</span>`);
@@ -136,15 +143,19 @@ export function renderTeams() {
     return `<button class="tcard${k === state.turn ? ' is-turn' : ''}${t.bankrupt ? ' is-out' : ''}" type="button" data-team="${k}" style="--tc:${t.color}">
       <span class="tc-head"><span class="tc-av" style="${avatarStyle(t)}">${avatarText(t)}</span><span class="tc-name">${esc(t.name)}</span></span>
       <span class="tc-money${t.money < 0 ? ' neg' : ''}" data-money="${k}">${money(shownMoney[k] ?? t.money)}</span>
-      <span class="tc-props">${chips || '<span class="tc-empty">Sense propietats</span>'}</span>
+      <span class="tc-props">${chips || '<span class="tc-empty">Encara no té cap propietat</span>'}</span>
       ${tags.length ? `<span class="tc-tags">${tags.join('')}</span>` : ''}
     </button>`;
   };
   const half = Math.ceil(state.teams.length / 2);
+  // les propietats que ja no són d'un equip s'obliden (així tornen a entrar animades si les recupera)
+  [...seenDeeds].forEach((key) => { const [k, i] = key.split(':').map(Number); if (state.owners[i]?.team !== k) seenDeeds.delete(key); });
   $('#teamsL').innerHTML = state.teams.slice(0, half).map((t, k) => html(t, k)).join('');
   $('#teamsR').innerHTML = state.teams.slice(half).map((t, k) => html(t, k + half)).join('');
+  seenDeeds.ready = true;
   state.teams.forEach((t, k) => tweenMoney(k, t.money));
 }
+const seenDeeds = new Set();
 
 function tweenMoney(k, target) {
   const el = $(`[data-money="${k}"]`);
@@ -182,17 +193,37 @@ function anchor(who) {
   return rectCenter($('#stage'));
 }
 
+// bitllets de la banca: valor, color i color fosc de la vora
+const BILLS = [
+  { v: 500, c: '#C9A7F5', d: '#6B3FB5' },
+  { v: 100, c: '#FFC27A', d: '#B8650E' },
+  { v: 50, c: '#9DCCF5', d: '#2A6FB0' },
+  { v: 20, c: '#9BE3AE', d: '#1E8A47' },
+  { v: 10, c: '#FFEC8A', d: '#A88A00' },
+  { v: 5, c: '#F9B4D0', d: '#B83A72' },
+  { v: 1, c: '#F2F4FA', d: '#7A80A0' },
+];
+
 function flyMoney(from, to, amount) {
   if (reduced()) return;
   const layer = $('#fx');
   const a = anchor(from);
   const b = anchor(to);
   const toTeam = typeof to === 'number';
-  // uns quants bitllets que volen en corba
-  const n = Math.min(6, 2 + Math.floor(amount / 100));
+  // els bitllets que sumen la quantitat (com a mínim un), cadascun del seu color
+  const notes = [];
+  let rest = Math.abs(amount);
+  for (const d of BILLS) {
+    while (rest >= d.v && notes.length < 9) { notes.push(d); rest -= d.v; }
+  }
+  if (!notes.length) notes.push(BILLS[BILLS.length - 1]);
+  const n = notes.length;
   for (let k = 0; k < n; k++) {
     const el = document.createElement('div');
     el.className = 'bill';
+    el.style.setProperty('--bc', notes[k].c);
+    el.style.setProperty('--bd', notes[k].d);
+    el.innerHTML = `<span>${notes[k].v}</span>`;
     layer.appendChild(el);
     const lift = 120 + Math.random() * 80;
     const jitter = (Math.random() - 0.5) * 60;

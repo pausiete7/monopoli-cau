@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795548661';
+import * as G from './engine.js?v=1795549094';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795548661';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795548661';
-import * as S3 from './scene.js?v=1795548661';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795548661';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795548661';
+} from './board.js?v=1795549094';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795549094';
+import * as S3 from './scene.js?v=1795549094';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795549094';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795549094';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -109,9 +109,14 @@ function buyModal(q) {
   openModal({
     title: `${esc(T.name)} ha caigut a ${esc(s.name)}`,
     body: `<div class="split">${deedHTML(q.sq)}<div class="grow">
-      <p class="lead">Ningú té aquesta propietat. ${esc(T.name)} la pot comprar per <b>${G.money(s.price)}</b>.</p>
-      <p class="muted">Ara té ${G.money(T.money)}.${enough ? '' : ' No en té prou per comprar-la: es pot subhastar.'}</p>
-      <p class="muted">Si no la compra, es pot subhastar entre tots els equips.</p>
+      <p class="lead">Ningú té aquesta propietat. La vol comprar?</p>
+      <div class="pricebox" style="--tc:${T.color}">
+        <span class="pb-label">Preu</span>
+        <span class="pb-price">${G.money(s.price)}</span>
+        <span class="pb-row"><span>${esc(T.name)} té</span><b>${G.money(T.money)}</b></span>
+        <span class="pb-row"><span>Després de comprar-la tindrà</span><b class="${enough ? '' : 'neg'}">${G.money(T.money - s.price)}</b></span>
+      </div>
+      <p class="muted">${enough ? 'Si no la compra, es pot subhastar entre tots els equips.' : 'No té prou diners per comprar-la: es pot subhastar.'}</p>
     </div></div>`,
     foot: `<button class="btn btn-ghost" type="button" data-a="skip">No comprar</button><span class="spacer"></span>
       <button class="btn" type="button" data-a="auction">${icon('gavel')}Subhastar</button>
@@ -149,6 +154,7 @@ function auctionModal(q) {
     title: `Subhasta: ${esc(s.name)}`,
     body: `<div class="split">${deedHTML(i)}<div class="grow">
       <p class="lead">${owner !== null ? `${esc(G.team(owner).name)} ven la propietat al millor postor.` : 'Cada equip puja. Guanya qui ofereix més.'}</p>
+      <div class="pricebox" id="aucTop"><span class="pb-label">Oferta més alta</span><span class="pb-price">Encara cap</span></div>
       <div id="aucRows">${rowsHTML()}</div>
       <p class="muted" style="margin-top:12px">Cada botó supera l'oferta més alta.</p>
     </div></div>`,
@@ -161,6 +167,12 @@ function auctionModal(q) {
         const tb = top();
         winBtn.disabled = tb === null;
         winBtn.textContent = tb === null ? 'Adjudicar' : `Adjudicar a ${G.team(tb).name} per ${G.money(bids[tb])}`;
+        const topBox = d.querySelector('#aucTop');
+        topBox.style.setProperty('--tc', tb === null ? 'var(--ink)' : G.team(tb).color);
+        topBox.innerHTML = tb === null
+          ? '<span class="pb-label">Oferta més alta</span><span class="pb-price">Encara cap</span>'
+          : `<span class="pb-label">Oferta més alta</span><span class="pb-price">${G.money(bids[tb])}</span><span class="pb-row"><span>Guanya ara</span><b>${esc(G.team(tb).name)}</b></span>`;
+        topBox.classList.remove('bump'); void topBox.offsetWidth; topBox.classList.add('bump');
       };
       d.querySelector('#aucRows').addEventListener('click', (e) => {
         const b = e.target.closest('[data-bid]');
