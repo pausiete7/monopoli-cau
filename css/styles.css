@@ -717,11 +717,37 @@ input[type=color] { width: 54px; height: 46px; padding: 2px; border: 2px solid v
 .card-for { text-align: center; font-size: 19px; margin: 0 0 6px; }
 .card-for b { color: var(--tc); }
 
-.auc-row { display: grid; grid-template-columns: minmax(140px, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; }
-.auc-row.top { background: #FFF1B8; }
-.auc-bid { font: 800 26px/1 var(--f-display); font-variant-numeric: tabular-nums; min-width: 110px; text-align: right; }
+.auc-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 100px auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 62px;
+  padding: 8px 12px;
+  border-radius: 16px;
+}
+.auc-row + .auc-row { margin-top: 4px; }
+.auc-row.top { background: #FFF1B8; box-shadow: inset 0 0 0 2px var(--gold); }
+.auc-row.out { opacity: .5; }
+.auc-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--tc) center / cover;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--tc);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: 900 15px/1 var(--f-display);
+}
+.auc-who { display: grid; min-width: 0; }
+.auc-who b { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.auc-who span { font-size: 14px; color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.auc-bid { font: 800 24px/1 var(--f-display); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .auc-btns { display: flex; gap: 6px; }
-.auc-btns .btn { min-height: 42px; padding: 4px 12px; font-size: 15px; }
+.auc-btns .btn { min-height: 42px; min-width: 58px; padding: 4px 10px; font-size: 15px; }
+.mg-team .sw, .team-pick .sw { flex: none; }
 
 .trade { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .trade-col { border-radius: 18px; padding: 14px; background: var(--paper-2); }

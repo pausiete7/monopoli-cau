@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795550234';
+import * as G from './engine.js?v=1795550484';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795550234';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795550234';
-import * as S3 from './scene.js?v=1795550234';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795550234';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795550234';
+} from './board.js?v=1795550484';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795550484';
+import * as S3 from './scene.js?v=1795550484';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795550484';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795550484';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -145,13 +145,16 @@ function auctionModal(q) {
   const rowsHTML = () => S().teams.map((t, k) => {
     const out = t.bankrupt || k === owner;
     const tb = top();
-    return `<div class="auc-row${tb === k ? ' top' : ''}">
-      <div class="mg-team" style="--tc:${t.color}"><span class="sw" style="${avatarStyle(t)}"></span>${esc(t.name)}<span class="muted" style="font-weight:400;font-size:14px">${out ? (k === owner ? 'ven' : '') : G.money(t.money)}</span></div>
-      <div class="auc-bid">${bids[k] ? G.money(bids[k]) : '—'}</div>
-      <div class="auc-btns">${[10, 50, 100].map((inc) => `<button class="btn" type="button" data-bid="${k}" data-inc="${inc}" ${out ? 'disabled' : ''}>+${inc}</button>`).join('')}</div>
+    const note = t.bankrupt ? 'Fora de la partida' : k === owner ? 'És qui ven' : `Té ${G.money(t.money)}`;
+    return `<div class="auc-row${tb === k ? ' top' : ''}${out ? ' out' : ''}">
+      <span class="auc-av" style="${avatarStyle(t)}">${avatarText(t)}</span>
+      <div class="auc-who"><b>${esc(t.name)}</b><span>${note}</span></div>
+      <div class="auc-bid">${bids[k] ? G.money(bids[k]) : ''}</div>
+      <div class="auc-btns">${out ? '' : [10, 50, 100].map((inc) => `<button class="btn" type="button" data-bid="${k}" data-inc="${inc}">+${inc}</button>`).join('')}</div>
     </div>`;
   }).join('');
   openModal({
+    wide: true,
     title: `Subhasta: ${esc(s.name)}`,
     body: `<div class="split">${deedHTML(i)}<div class="grow">
       <p class="lead">${owner !== null ? `${esc(G.team(owner).name)} ven la propietat al millor postor.` : 'Cada equip puja. Guanya qui ofereix més.'}</p>
