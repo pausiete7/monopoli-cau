@@ -1,9 +1,11 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
 import * as G from './engine.js';
 import {
-  buildBoard, renderAll, renderCenter, renderTeams, renderTokens, renderSquares, playFx, syncDisplay, isPlaying,
-  icon, esc, toast, photoOf, setPhoto, avatarStyle, avatarText,
+  buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
+  icon, esc, toast, drawCardFx,
 } from './board.js';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js';
+import * as S3 from './scene.js';
 import { sfx, toggleMute, isMuted } from './sound.js';
 import { EFFECTS, MINIGAMES, GROUPS } from './data.js';
 
@@ -14,12 +16,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const S = () => G.state;
 
 // ---------- Cicle principal ----------
-function applyTilt() {
-  document.body.classList.toggle('tilt', !!G.rules().tilt);
-}
-
 function full() {
-  applyTilt();
   renderAll(isMuted());
 }
 
@@ -32,13 +29,19 @@ async function after() {
   openQueue();
 }
 
-function openQueue() {
-  if (dlg.open || isPlaying()) return;
+let drawing = false;
+async function openQueue() {
+  if (dlg.open || isPlaying() || drawing) return;
   const q = S().queue[0];
   if (!q) return;
   if (q.type === 'buy') buyModal(q);
   else if (q.type === 'auction') auctionModal(q);
-  else if (q.type === 'card') cardModal(q);
+  else if (q.type === 'card') {
+    drawing = true;
+    sfx.flip();
+    try { await drawCardFx(q.deck); } finally { drawing = false; }
+    if (S().queue[0] === q && !dlg.open) cardModal(q);
+  }
 }
 
 // ---------- Finestres ----------
@@ -231,7 +234,6 @@ function cardModal(q) {
       </div></div>`,
     foot: `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
     onMount(d) {
-      sfx.flip();
       setTimeout(() => (good ? sfx.good() : sfx.bad()), 450);
       const b = d.querySelector('[data-a=apply]');
       b.addEventListener('click', () => { G.applyCard(); after(); });
@@ -579,11 +581,8 @@ function settingsModal(tab = 'teams') {
       <label class="field"><span>Pagar per sortir de la presó</span><input type="number" data-r="jailFine" value="${r.jailFine}" step="10"></label>
       <label class="field"><span>Número per sortir de la presó</span><input type="number" data-r="jailExitRoll" value="${r.jailExitRoll}" min="1" max="12"></label>
       <label class="field"><span>Dau</span><select data-r="maxDie"><option value="6" ${r.maxDie === 6 ? 'selected' : ''}>Un dau (1 a 6)</option><option value="12" ${r.maxDie === 12 ? 'selected' : ''}>Dos daus (2 a 12)</option></select></label>
-      <label class="field"><span>Les caselles d'interrogant donen</span><select data-r="chanceDeck"><option value="mix" ${r.chanceDeck === 'mix' ? 'selected' : ''}>Carta a l'atzar</option><option value="good" ${r.chanceDeck === 'good' ? 'selected' : ''}>Sempre bona</option><option value="bad" ${r.chanceDeck === 'bad' ? 'selected' : ''}>Sempre dolenta</option></select></label>
       <label class="field"><span>Moneda</span><input type="text" data-r="currency" value="${esc(r.currency)}" maxlength="6"></label>
     </div>
-    <label class="check"><input type="checkbox" data-r="parkingPot" ${r.parkingPot ? 'checked' : ''}> Les multes van a un pot que s'emporta qui cau al Pàrquing</label>
-    <label class="check"><input type="checkbox" data-r="tilt" ${r.tilt ? 'checked' : ''}> Tauler en perspectiva</label>
     <p class="muted">Els diners per començar s'apliquen quan es comença una partida nova.</p>`;
 
   const gameHTML = () => `<p class="lead">La partida es desa sola en aquest navegador a cada pas. Si voleu passar-la a un altre ordinador, descarregueu-la i carregueu-la allà.</p>
@@ -719,6 +718,7 @@ function settingsModal(tab = 'teams') {
           st.teams.forEach((t, k) => { t.name = teams[k].name.trim() || t.name; t.color = teams[k].color; });
         });
         dlg.close();
+        buildBoard();
         full();
         toast('Canvis desats.');
       });
@@ -767,10 +767,6 @@ document.addEventListener('click', (e) => {
   if (roll && !roll.disabled && !isPlaying()) { G.roll(Number(roll.dataset.roll)); after(); return; }
   const t = e.target.closest('[data-team]');
   if (t) { teamModal(Number(t.dataset.team)); return; }
-  const s = e.target.closest('[data-sq]');
-  if (s) { squareModal(Number(s.dataset.sq)); return; }
-  const deck = e.target.closest('[data-deck]');
-  if (deck) { deckModal(deck.dataset.deck); return; }
   if (e.target.closest('#ticker')) logModal();
 });
 
@@ -793,19 +789,25 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-let resizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => renderTokens(), 120);
-});
-
 // ---------- Arrencada ----------
 G.load();
-buildBoard();
-full();
-// les fonts canvien la mida de les caselles: recol·loquem les fitxes quan arribin
-document.fonts?.ready.then(() => renderTokens());
-openQueue();
+const boardHandlers = {
+  onSquare: (i) => { if (!isPlaying()) squareModal(i); },
+  onDeck: (d) => { if (!isPlaying()) deckModal(d); },
+};
+// el tauler es dibuixa amb les fonts: esperem que arribin (amb un límit per si no hi ha internet)
+Promise.race([
+  Promise.all([
+    document.fonts.load('800 64px Anybody'),
+    document.fonts.load('900 64px Anybody'),
+    document.fonts.load('700 20px "Atkinson Hyperlegible"'),
+  ]),
+  new Promise((r) => setTimeout(r, 2500)),
+]).catch(() => {}).finally(() => {
+  buildBoard(boardHandlers);
+  full();
+  openQueue();
+});
 
 // per depurar des de la consola
-window.__monopoli = { G, renderAll: full, renderSquares, renderTeams };
+window.__monopoli = { G, renderAll: full, renderSquares, renderTeams, scene: S3 };

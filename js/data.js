@@ -15,25 +15,24 @@ export const GROUPS = {
 const P = (name, group, price, rent, house) => ({ type: 'prop', name, group, price, rent, house });
 const S = (name) => ({ type: 'station', name, price: 200 });
 
-// 28 caselles. La 0 és la Sortida (cantonada de baix a la dreta) i es va en sentit horari.
+// 24 caselles: 16 propietats, 4 estacions i 4 cantonades.
+// Cada costat és d'un moni: 4 propietats i 1 estació.
+// La 0 és la Sortida (cantonada de baix a la dreta) i es va en sentit horari.
 export const BOARD = [
   { type: 'go', name: 'Sortida' },
   P('Lavabos del cau', 'marro', 60, [2, 10, 30, 90, 160, 250], 50),
   P('Magatzem de material', 'marro', 60, [4, 20, 60, 180, 320, 450], 50),
-  { type: 'chance', name: 'Interrogant' },
   S('Estació FGC Rubí'),
   P('Pati del cau', 'cel', 100, [6, 30, 90, 270, 400, 550], 50),
   P('Local de Pioners', 'cel', 120, [8, 40, 100, 300, 450, 600], 50),
   { type: 'jail', name: 'Presó' },
   P('Racó del foc', 'rosa', 140, [10, 50, 150, 450, 625, 750], 100),
-  { type: 'tax', name: 'Multa', amount: 100 },
   P('Cuina de campaments', 'rosa', 160, [12, 60, 180, 500, 700, 900], 100),
   S('Estació Renfe Rubí'),
   P('Riera de Rubí', 'taronja', 180, [14, 70, 200, 550, 750, 950], 100),
   P("Parc de Ca n'Oriol", 'taronja', 200, [16, 80, 220, 600, 800, 1000], 100),
-  { type: 'parking', name: 'Pàrquing' },
+  { type: 'tax', name: 'Multa', amount: 100 },
   P('Castell de Rubí', 'vermell', 220, [18, 90, 250, 700, 875, 1050], 150),
-  { type: 'chance', name: 'Interrogant' },
   P('Plaça del Doctor Guardiet', 'vermell', 240, [20, 100, 300, 750, 925, 1100], 150),
   S('Cremallera de Núria'),
   P('Montserrat', 'groc', 260, [22, 110, 330, 800, 975, 1150], 150),
@@ -41,7 +40,6 @@ export const BOARD = [
   { type: 'gotojail', name: 'Ves a la presó' },
   P("Campaments d'estiu", 'verd', 300, [26, 130, 390, 900, 1100, 1275], 200),
   P('Ruta de Pioners', 'verd', 320, [28, 150, 450, 1000, 1200, 1400], 200),
-  { type: 'chance', name: 'Interrogant' },
   S('Estació de Sants'),
   P('Vall de Núria', 'blau', 350, [35, 175, 500, 1100, 1300, 1500], 200),
   P('Puigmal', 'blau', 400, [50, 200, 600, 1400, 1700, 2000], 200),
@@ -82,7 +80,7 @@ export const CARDS = {
     { text: 'Tira un altre cop.', effect: 'extra', value: 0 },
     { text: "Has venut totes les neules de l'extrajob. Cobra 200.", effect: 'money', value: 200 },
     { text: 'El kraal t\'ha vist amb camisa i foulard. Cobra 120.', effect: 'money', value: 120 },
-    { text: 'Agafes el cremallera sense fer cua. Ves a la Cremallera de Núria.', effect: 'goto', value: 18 },
+    { text: 'Agafes el cremallera sense fer cua. Ves a la Cremallera de Núria.', effect: 'goto', value: 15 },
   ],
   bad: [
     { text: "T'has deixat el sac de dormir a casa. Paga 100.", effect: 'money', value: -100 },
