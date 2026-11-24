@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { state, sq, N, team, money, rentFor, rules } from './engine.js';
 import { photoOf, initials } from './util.js';
+import { deckName } from './data.js';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -203,82 +204,72 @@ function drawGo(ctx, x, y, w, h) {
   ctx.restore();
 }
 
+let jailImg = null; // foto opcional per a dins la presó (p. ex. la cara d'un moni)
+
 function drawJail(ctx, x, y, w, h, name) {
-  ctx.fillStyle = '#FFF2E0';
+  ctx.fillStyle = '#FFF4E4';
   ctx.fillRect(x, y, w, h);
   // la cel·la ocupa la part interior (dalt a la dreta)
   const cw = w * 0.66;
   const cx = x + w - cw;
   const cy = y;
-  const wall = ctx.createLinearGradient(cx, cy, cx, cy + cw);
-  wall.addColorStop(0, '#7E8AA8');
-  wall.addColorStop(1, '#4C5674');
-  ctx.fillStyle = wall;
-  ctx.fillRect(cx, cy, cw, cw);
-  // maons
-  ctx.strokeStyle = 'rgba(255,255,255,.12)';
-  ctx.lineWidth = 6;
-  for (let r = 0; r < 7; r++) {
-    const yy = cy + (cw / 7) * r;
-    ctx.beginPath(); ctx.moveTo(cx, yy); ctx.lineTo(cx + cw, yy); ctx.stroke();
-    for (let c = 0; c < 5; c++) {
-      const xx = cx + (cw / 4) * c + (r % 2 ? cw / 8 : 0);
-      ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + cw / 7); ctx.stroke();
-    }
-  }
-  // presoner (silueta amb samarreta de ratlles)
   ctx.save();
   ctx.beginPath();
   ctx.rect(cx, cy, cw, cw);
   ctx.clip();
-  const px = cx + cw * 0.5;
-  const py = cy + cw * 0.62;
-  ctx.fillStyle = '#F2C9A0';
-  ctx.beginPath(); ctx.arc(px, py - 70, 62, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = INK;
-  ctx.beginPath(); ctx.arc(px - 22, py - 78, 9, 0, Math.PI * 2); ctx.arc(px + 22, py - 78, 9, 0, Math.PI * 2); ctx.fill();
-  ctx.lineWidth = 7; ctx.strokeStyle = INK; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.arc(px, py - 40, 18, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
-  for (let k = 0; k < 6; k++) {
-    ctx.fillStyle = k % 2 ? '#FFFFFF' : INK;
-    ctx.fillRect(px - 110, py + k * 34, 220, 34);
+  if (jailImg) {
+    const s = Math.min(jailImg.width, jailImg.height);
+    ctx.drawImage(jailImg, (jailImg.width - s) / 2, (jailImg.height - s) / 2, s, s, cx, cy, cw, cw);
+    ctx.fillStyle = 'rgba(20,20,50,.18)';
+    ctx.fillRect(cx, cy, cw, cw);
+  } else {
+    const wall = ctx.createRadialGradient(cx + cw / 2, cy + cw * 0.35, 20, cx + cw / 2, cy + cw / 2, cw * 0.8);
+    wall.addColorStop(0, '#5B6488');
+    wall.addColorStop(1, '#262B4A');
+    ctx.fillStyle = wall;
+    ctx.fillRect(cx, cy, cw, cw);
   }
+  // ombra dels barrots a terra
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  for (let k = 1; k < 6; k++) ctx.fillRect(cx + (cw / 6) * k + 18, cy, 22, cw);
   ctx.restore();
-  // barrots
-  for (let k = 1; k < 6; k++) {
-    const bx = cx + (cw / 6) * k;
-    const bg = ctx.createLinearGradient(bx - 14, 0, bx + 14, 0);
-    bg.addColorStop(0, '#5A5E6E');
-    bg.addColorStop(0.45, '#E6E9F2');
-    bg.addColorStop(1, '#4A4D5C');
+  // barrots metàl·lics
+  const bar = (bx) => {
+    const bg = ctx.createLinearGradient(bx - 16, 0, bx + 16, 0);
+    bg.addColorStop(0, '#4A4E60');
+    bg.addColorStop(0.4, '#F2F4FA');
+    bg.addColorStop(0.6, '#C9CDDA');
+    bg.addColorStop(1, '#3E4152');
     ctx.fillStyle = bg;
-    roundRect(ctx, bx - 14, cy, 28, cw, 12);
+    roundRect(ctx, bx - 16, cy - 10, 32, cw + 20, 16);
     ctx.fill();
-  }
-  ctx.lineWidth = 10;
+  };
+  for (let k = 1; k < 6; k++) bar(cx + (cw / 6) * k);
+  // travesser horitzontal
+  const tg = ctx.createLinearGradient(0, cy + cw * 0.3 - 16, 0, cy + cw * 0.3 + 16);
+  tg.addColorStop(0, '#4A4E60'); tg.addColorStop(0.45, '#F2F4FA'); tg.addColorStop(1, '#3E4152');
+  ctx.fillStyle = tg;
+  ctx.fillRect(cx, cy + cw * 0.3 - 14, cw, 28);
+  ctx.lineWidth = 12;
   ctx.strokeStyle = INK;
-  ctx.strokeRect(cx, cy, cw, cw);
+  ctx.strokeRect(cx + 6, cy - 6, cw, cw);
   // cartell
-  setFont(ctx, 900, 84, 'expanded');
-  const tw = ctx.measureText(name.toUpperCase()).width + 60;
-  roundRect(ctx, cx + cw / 2 - tw / 2, cy + cw - 120, tw, 100, 18);
+  setFont(ctx, 900, 92, 'expanded');
+  const label = name.toUpperCase();
+  const tw = ctx.measureText(label).width + 70;
+  roundRect(ctx, cx + cw / 2 - tw / 2, cy + cw - 135, tw, 112, 22);
   ctx.fillStyle = '#FFB020';
   ctx.fill();
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 9;
   ctx.stroke();
   ctx.fillStyle = INK;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(name.toUpperCase(), cx + cw / 2, cy + cw - 68);
-  // "només de visita" a la franja exterior
-  setFont(ctx, 800, 56, 'condensed');
+  ctx.fillText(label, cx + cw / 2, cy + cw - 76);
+  // "només de visita", de cara a qui mira, a la franja de baix
+  setFont(ctx, 850, 66, 'condensed');
   ctx.fillStyle = INK;
-  ctx.save();
-  ctx.translate(x + (w - cw) / 2, y + cw / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText('NOMÉS DE', 0, -8);
-  ctx.restore();
-  ctx.fillText('VISITA', x + w / 2, y + h - (h - cw) / 2);
+  ctx.fillText('NOMÉS DE VISITA', x + w / 2, y + cw + (h - cw) / 2 + 4);
 }
 
 function drawTax(ctx, x, y, w, h, s) {
@@ -325,6 +316,8 @@ function drawGoToJail(ctx, x, y, w, h, name) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2);
   ctx.rotate(-Math.PI / 4);
+  // el conjunt (sirena + text) va de −190 a +292: el centrem
+  ctx.translate(0, -51);
   // llum de sirena
   ctx.save();
   ctx.translate(0, -40);
@@ -408,28 +401,26 @@ function drawCenter(ctx, x, y, w, h) {
   ctx.lineJoin = 'round';
   ctx.lineWidth = 46;
   ctx.strokeStyle = INK;
-  ctx.strokeText('Monopoli', 0, 18);
+  ctx.strokeText('Caupoli', 0, 18);
   ctx.lineWidth = 28;
   ctx.strokeStyle = '#FFFFFF';
-  ctx.strokeText('Monopoli', 0, 0);
+  ctx.strokeText('Caupoli', 0, 0);
   const lg = ctx.createLinearGradient(0, -150, 0, 150);
   lg.addColorStop(0, '#FF6B5B');
   lg.addColorStop(1, '#D3261B');
   ctx.fillStyle = lg;
-  ctx.fillText('Monopoli', 0, 0);
-  // cinta "del Cau"
+  ctx.fillText('Caupoli', 0, 0);
+  // cinta
   ctx.translate(0, 205);
-  roundRect(ctx, -260, -62, 520, 124, 62);
+  setFont(ctx, 850, 76, 'semi-expanded');
+  const rib = 'Pioners i Caravel·les';
+  const rw = ctx.measureText(rib).width + 110;
+  roundRect(ctx, -rw / 2, -58, rw, 116, 58);
   ctx.fillStyle = INK;
   ctx.fill();
-  setFont(ctx, 850, 92, 'semi-expanded');
   ctx.fillStyle = '#FFD84D';
-  ctx.fillText('del Cau', 0, 4);
+  ctx.fillText(rib, 0, 4);
   ctx.restore();
-  setFont(ctx, 700, 52, 'normal');
-  ctx.fillStyle = 'rgba(28,26,58,.6)';
-  ctx.textAlign = 'center';
-  ctx.fillText("Pioners i Caravel·les de l'AE Albada", cx, y + h * 0.43);
 }
 
 export function drawBoard(canvas) {
@@ -671,8 +662,8 @@ function deckTexture(deck, count) {
   const ctx = c.getContext('2d');
   const good = deck === 'good';
   const g = ctx.createLinearGradient(0, 0, 512, 720);
-  g.addColorStop(0, good ? '#34C46E' : '#4A4F9E');
-  g.addColorStop(1, good ? '#178A47' : '#262A66');
+  g.addColorStop(0, good ? '#34C46E' : '#5157B8');
+  g.addColorStop(1, good ? '#178A47' : '#2A2F78');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 512, 720);
   ctx.strokeStyle = 'rgba(255,255,255,.75)';
@@ -682,39 +673,34 @@ function deckTexture(deck, count) {
   ctx.save();
   roundRect(ctx, 30, 30, 452, 660, 30);
   ctx.clip();
-  ctx.strokeStyle = 'rgba(255,255,255,.1)';
-  ctx.lineWidth = 18;
-  for (let k = -10; k < 20; k++) { ctx.beginPath(); ctx.moveTo(k * 60, 720); ctx.lineTo(k * 60 + 720, 0); ctx.stroke(); }
-  ctx.restore();
-  // símbol: sol o llamp
-  ctx.save();
-  ctx.translate(256, 300);
-  ctx.fillStyle = '#FFD84D';
-  ctx.strokeStyle = '#1C1A3A';
+  // trama de nusos: cercles concèntrics a les cantonades
+  ctx.strokeStyle = 'rgba(255,255,255,.13)';
   ctx.lineWidth = 10;
-  ctx.lineJoin = 'round';
-  if (good) {
-    for (let k = 0; k < 12; k++) {
-      ctx.save(); ctx.rotate((k * Math.PI) / 6);
-      ctx.beginPath(); ctx.moveTo(-18, -95); ctx.lineTo(0, -150); ctx.lineTo(18, -95); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.restore();
-    }
-    ctx.beginPath(); ctx.arc(0, 0, 92, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  } else {
-    ctx.beginPath();
-    ctx.moveTo(30, -160); ctx.lineTo(-90, 20); ctx.lineTo(-5, 20); ctx.lineTo(-35, 160); ctx.lineTo(95, -30); ctx.lineTo(10, -30); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-  }
+  [[30, 30], [482, 690]].forEach(([ox, oy]) => {
+    for (let r = 60; r < 700; r += 46) { ctx.beginPath(); ctx.arc(ox, oy, r, 0, Math.PI * 2); ctx.stroke(); }
+  });
   ctx.restore();
-  setFont(ctx, 900, 74, 'condensed');
-  ctx.fillStyle = '#fff';
+  // el nom del mall, gran i en dues línies
+  const words = deckName(rules(), deck).toUpperCase().split(/\s+/);
+  const lines = words.length > 1 ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : words;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(good ? 'CARTES BONES' : 'CARTES DOLENTES', 256, 540);
+  let fs = 132;
+  setFont(ctx, 900, fs, 'condensed');
+  while (fs > 60 && lines.some((l) => ctx.measureText(l).width > 400)) { fs -= 4; setFont(ctx, 900, fs, 'condensed'); }
+  ctx.lineJoin = 'round';
+  lines.forEach((l, k) => {
+    const yy = 330 + (k - (lines.length - 1) / 2) * fs * 0.98;
+    ctx.lineWidth = 22;
+    ctx.strokeStyle = '#1C1A3A';
+    ctx.strokeText(l, 256, yy + 6);
+    ctx.fillStyle = k === 0 ? '#FFD84D' : '#FFFFFF';
+    ctx.fillText(l, 256, yy);
+  });
   if (count !== undefined) {
     setFont(ctx, 700, 44, 'normal');
     ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.fillText(`queden ${count}`, 256, 615);
+    ctx.fillText(`queden ${count}`, 256, 610);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -733,7 +719,7 @@ let hoverMesh; let raycaster; const pointer = new THREE.Vector2();
 let displayPos = null;
 const animating = new Set();
 let handlers = {};
-const camTarget = new THREE.Vector3(0, 0, 0.35);
+const camTarget = new THREE.Vector3(0, 0, 0.12);
 const camFocus = { x: 0, z: 0, k: 0 };
 let baseDist = 12;
 const ELEV = THREE.MathUtils.degToRad(62);
@@ -821,6 +807,13 @@ export function buildBoard() {
 
   boardCanvas = boardCanvas || document.createElement('canvas');
   boardCanvas.width = TEX; boardCanvas.height = TEX;
+  // foto de la presó (opcional): es carrega i es torna a dibuixar el tauler
+  const jp = photoOf('jail');
+  if (jp && (!jailImg || jailImg.src !== jp)) {
+    const img = new Image();
+    img.onload = () => { jailImg = img; drawBoard(boardCanvas); boardTex.needsUpdate = true; };
+    img.src = jp;
+  } else if (!jp) jailImg = null;
   drawBoard(boardCanvas);
   boardTex = new THREE.CanvasTexture(boardCanvas);
   boardTex.colorSpace = THREE.SRGBColorSpace;
@@ -867,10 +860,10 @@ function fit() {
   const w = container.clientWidth || 1;
   const h = container.clientHeight || 1;
   camera.aspect = w / h;
-  const l = L() / 2 + 0.3;
+  const l = L() / 2 + 0.24;
   const pts = [];
-  [-l, l].forEach((x) => [-l, l].forEach((z) => { pts.push(new THREE.Vector3(x, 0, z)); pts.push(new THREE.Vector3(x, -0.34, z)); }));
-  pts.push(new THREE.Vector3(0, 1.1, -l));
+  [-l, l].forEach((x) => [-l, l].forEach((z) => { pts.push(new THREE.Vector3(x, 0, z)); pts.push(new THREE.Vector3(x, -0.38, z)); }));
+  pts.push(new THREE.Vector3(0, 0.55, -l));
   let lo = 4; let hi = 60;
   for (let k = 0; k < 30; k++) {
     const d = (lo + hi) / 2;
@@ -878,7 +871,7 @@ function fit() {
     let ok = true;
     for (const p of pts) {
       const v = p.clone().project(camera);
-      if (Math.abs(v.x) > 0.97 || Math.abs(v.y) > 0.95) { ok = false; break; }
+      if (Math.abs(v.x) > 0.99 || Math.abs(v.y) > 0.985) { ok = false; break; }
     }
     if (ok) hi = d; else lo = d;
   }
@@ -967,7 +960,8 @@ function spot(i, jailed) {
   const c = center(r);
   if (sq(i).type === 'jail') {
     const w = r.x1 - r.x0;
-    return jailed ? { x: r.x1 - w * 0.33, z: r.z0 + w * 0.33 } : { x: r.x0 + w * 0.17, z: r.z1 - w * 0.17 };
+    // dins la cel·la o, si només és de visita, a la franja de l'esquerra
+    return jailed ? { x: r.x1 - w * 0.33, z: r.z0 + w * 0.33 } : { x: r.x0 + w * 0.17, z: r.z0 + w * 0.36 };
   }
   // a les caselles, els peons es posen al mig (lluny de la franja de color)
   return c;

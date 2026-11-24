@@ -49,6 +49,7 @@ function migrate() {
   state.config.rules = { ...RULES, ...state.config.rules };
   state.config.groups = state.config.groups || clone(GROUPS);
   state.queue = state.queue || [];
+  state.started ??= state.log.length > 0;
   state.teams.forEach((t) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; });
 }
 
@@ -74,9 +75,22 @@ export function newGame(config = state?.config || defaultConfig(), teams = state
     pot: 0,
     round: 1,
     log: [],
+    started: false,
   };
   undoStack = [];
   fx.length = 0;
+  save();
+}
+
+// Pantalla de preparació: noms, colors i diners abans de la primera tirada
+export function startGame({ teams, rules: r }) {
+  Object.assign(state.config.rules, r);
+  state.teams.forEach((t, k) => {
+    t.name = teams[k].name.trim() || t.name;
+    t.color = teams[k].color;
+    t.money = state.config.rules.startMoney;
+  });
+  state.started = true;
   log('Comença la partida. Sort a tots els equips!', 'info');
   save();
 }
@@ -247,14 +261,14 @@ function land(t, front = false) {
 function draw(deck) {
   if (!state.decks[deck].length) {
     state.decks[deck] = shuffle(range(state.config.cards[deck].length));
-    log(`Es torna a barrejar el mall de cartes ${deck === 'good' ? 'bones' : 'dolentes'}.`, 'info');
+    log(`Es tornen a barrejar les cartes de ${deck === 'good' ? rules().goodName : rules().badName}.`, 'info');
   }
   return state.decks[deck].pop();
 }
 
 // ---------- Accions del torn ----------
 export function roll(n) {
-  if (state.phase !== 'roll' || state.queue.length) return;
+  if (state.phase !== 'roll' || state.queue.length || !state.started) return;
   checkpoint();
   const t = state.turn;
   const T = team(t);
@@ -657,7 +671,7 @@ export function exportGame() {
 
 export function importGame(text) {
   const s = JSON.parse(text);
-  if (!s.config || !s.teams) throw new Error('El fitxer no és una partida del Monopoli del Cau.');
+  if (!s.config || !s.teams) throw new Error('El fitxer no és una partida del Caupoli.');
   checkpoint();
   state = s;
   migrate();

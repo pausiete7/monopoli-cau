@@ -7,7 +7,7 @@ import {
 import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js';
 import * as S3 from './scene.js';
 import { sfx, toggleMute, isMuted } from './sound.js';
-import { EFFECTS, MINIGAMES, GROUPS } from './data.js';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -220,15 +220,15 @@ function cardModal(q) {
   const c = G.cardOf(q);
   const T = G.team(q.team);
   const good = q.deck === 'good';
-  const deckColor = good ? 'var(--good)' : 'var(--ink)';
-  const from = q.from === 'interrogant' ? 'Interrogant' : (good ? 'Carta bona' : 'Carta dolenta');
+  const deckColor = good ? 'var(--good)' : 'var(--deck-bad)';
+  const name = esc(deckName(G.rules(), q.deck));
   const count = q.of > 1 ? ` (${q.idx} de ${q.of})` : '';
   openModal({
-    title: `${from} per a ${esc(T.name)}${count}`,
-    body: `<p class="card-for" style="--tc:${T.color}"><b>${esc(T.name)}</b> agafa una carta ${good ? 'bona' : 'dolenta'}${count}</p>
+    title: `${name} per a ${esc(T.name)}${count}`,
+    body: `<p class="card-for" style="--tc:${T.color}"><b>${esc(T.name)}</b> agafa una carta de ${name}${count}</p>
       <div class="card-stage"><div class="gcard flip" style="--deck:${deckColor}">
         <div class="gface gback"></div>
-        <div class="gface gfront"><div class="ghead">${icon(good ? 'sun' : 'bolt')}${good ? 'Carta bona' : 'Carta dolenta'}</div>
+        <div class="gface gfront"><div class="ghead">${name}</div>
           <div class="gtext">${esc(c.text)}</div>
           <div class="gfoot">${esc(effectSummary(c))}</div></div>
       </div></div>`,
@@ -246,7 +246,7 @@ function deckModal(deck) {
   const good = deck === 'good';
   let pick = G.state.turn;
   openModal({
-    title: `Treure una carta ${good ? 'bona' : 'dolenta'}`,
+    title: `Treure una carta de ${esc(deckName(G.rules(), deck))}`,
     body: `<p class="lead">Per a quin equip?</p>${teamPick('t', pick)}<p class="muted" style="margin-top:14px">Queden ${S().decks[deck].length} cartes en aquest mall abans de tornar a barrejar.</p>`,
     foot: `<button class="btn btn-primary" type="button" data-a="go">Treure carta</button>`,
     onMount(d) {
@@ -261,7 +261,9 @@ function minigameModal() {
   const dist = {};
   S().teams.forEach((t, k) => { dist[k] = 0; });
   const vals = [-3, -2, -1, 0, 1, 2, 3];
-  const hint = (n) => (n === 0 ? 'Cap carta' : `${Math.abs(n)} carta${Math.abs(n) > 1 ? 'es' : ''} ${n > 0 ? 'bona' : 'dolenta'}${Math.abs(n) > 1 ? 's' : ''}`);
+  const GN = deckName(G.rules(), 'good');
+  const BN = deckName(G.rules(), 'bad');
+  const hint = (n) => (n === 0 ? 'Cap carta' : `${Math.abs(n)} carta${Math.abs(n) > 1 ? 'es' : ''} de ${n > 0 ? GN : BN}`);
   const rows = S().teams.map((t, k) => (t.bankrupt ? '' : `<div class="mg-row" data-row="${k}">
       <div class="mg-team" style="--tc:${t.color}"><span class="sw" style="${avatarStyle(t)}"></span>${esc(t.name)}</div>
       <div class="seg" role="group" aria-label="Cartes per a ${esc(t.name)}">${vals.map((v) => `<button type="button" data-v="${v}" class="${v < 0 ? 'neg' : v > 0 ? 'pos' : 'zero'}" aria-pressed="${v === 0}">${v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '0'}</button>`).join('')}</div>
@@ -269,7 +271,7 @@ function minigameModal() {
     </div>`)).join('');
   openModal({
     title: 'Minijoc fet',
-    body: `<p class="lead">Marqueu quantes cartes agafa cada equip. Positiu són cartes bones; negatiu, dolentes.</p>
+    body: `<p class="lead">Marqueu quantes cartes agafa cada equip: en positiu, de ${esc(GN)}; en negatiu, de ${esc(BN)}.</p>
       <div class="field"><span>Quin minijoc era? (opcional)</span>
         <select id="mgName"><option value="">Sense nom</option>${MINIGAMES.map((m) => `<option>${esc(m)}</option>`).join('')}</select></div>
       ${rows}
@@ -283,7 +285,7 @@ function minigameModal() {
         let g = 0; let b = 0;
         Object.values(dist).forEach((n) => { if (n > 0) g += n; else b -= n; });
         go.disabled = g + b === 0;
-        d.querySelector('#mgTotal').textContent = g + b ? `${g} bones i ${b} dolentes` : '';
+        d.querySelector('#mgTotal').textContent = g + b ? `${g} de ${GN} i ${b} de ${BN}` : '';
         $$('[data-row]', d).forEach((row) => {
           const n = dist[row.dataset.row];
           row.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(Number(x.dataset.v) === n)));
@@ -565,14 +567,14 @@ function settingsModal(tab = 'teams') {
     </div>` : '';
   }).join('')}`;
 
-  const cardsHTML = () => ['good', 'bad'].map((deck) => `<h3 class="label" style="margin-top:12px">${deck === 'good' ? 'Cartes bones' : 'Cartes dolentes'} (${draft.cards[deck].length})</h3>
+  const cardsHTML = () => ['good', 'bad'].map((deck) => `<h3 class="label" style="margin-top:12px">${esc(deckName(draft.rules, deck))} (${draft.cards[deck].length} cartes)</h3>
     ${draft.cards[deck].map((c, k) => `<div class="cfg-card">
       <textarea data-ctext="${deck}:${k}" aria-label="Text de la carta">${esc(c.text)}</textarea>
       <select data-ceff="${deck}:${k}" aria-label="Efecte">${Object.entries(EFFECTS).map(([v, l]) => `<option value="${v}" ${v === c.effect ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <input type="number" data-cval="${deck}:${k}" value="${c.value}" aria-label="Valor">
       <button class="icon-btn m-close" type="button" data-cdel="${deck}:${k}" aria-label="Esborrar carta">${icon('trash')}</button>
     </div>`).join('')}
-    <button class="btn" type="button" data-cadd="${deck}" style="margin-top:10px">${icon('plus')}Afegir carta ${deck === 'good' ? 'bona' : 'dolenta'}</button>`).join('');
+    <button class="btn" type="button" data-cadd="${deck}" style="margin-top:10px">${icon('plus')}Afegir carta a ${esc(deckName(draft.rules, deck))}</button>`).join('');
 
   const r = draft.rules;
   const rulesHTML = () => `<div class="cfg-rules">
@@ -582,6 +584,8 @@ function settingsModal(tab = 'teams') {
       <label class="field"><span>Número per sortir de la presó</span><input type="number" data-r="jailExitRoll" value="${r.jailExitRoll}" min="1" max="12"></label>
       <label class="field"><span>Dau</span><select data-r="maxDie"><option value="6" ${r.maxDie === 6 ? 'selected' : ''}>Un dau (1 a 6)</option><option value="12" ${r.maxDie === 12 ? 'selected' : ''}>Dos daus (2 a 12)</option></select></label>
       <label class="field"><span>Moneda</span><input type="text" data-r="currency" value="${esc(r.currency)}" maxlength="6"></label>
+      <label class="field"><span>Nom del mall de cartes que guanya</span><input type="text" data-r="goodName" value="${esc(r.goodName)}" maxlength="22"></label>
+      <label class="field"><span>Nom del mall de cartes que perd</span><input type="text" data-r="badName" value="${esc(r.badName)}" maxlength="22"></label>
     </div>
     <p class="muted">Els diners per començar s'apliquen quan es comença una partida nova.</p>`;
 
@@ -640,7 +644,7 @@ function settingsModal(tab = 'teams') {
         if (ds.r !== undefined) {
           const key = ds.r;
           if (el.type === 'checkbox') r[key] = el.checked;
-          else if (['currency', 'chanceDeck'].includes(key)) r[key] = el.value;
+          else if (['currency', 'chanceDeck', 'goodName', 'badName'].includes(key)) r[key] = el.value;
           else r[key] = Number(el.value) || 0;
         }
       });
@@ -697,7 +701,7 @@ function settingsModal(tab = 'teams') {
           buildBoard();
           dlg.close();
           full();
-          toast('Partida nova a punt.');
+          setupModal();
         }
         if (ds.g === 'defaults') {
           if (!confirm('Recuperar el tauler i les cartes d\'exemple? Es perdran els que hàgiu escrit.')) return;
@@ -712,7 +716,7 @@ function settingsModal(tab = 'teams') {
       d.querySelector('[data-a=save]').addEventListener('click', () => {
         draft.cards.good = draft.cards.good.filter((c) => c.text.trim());
         draft.cards.bad = draft.cards.bad.filter((c) => c.text.trim());
-        if (!draft.cards.good.length || !draft.cards.bad.length) { toast('Cal com a mínim una carta bona i una de dolenta amb text.'); return; }
+        if (!draft.cards.good.length || !draft.cards.bad.length) { toast('Cada mall ha de tenir com a mínim una carta amb text.'); return; }
         G.updateConfig((st) => {
           st.config = draft;
           st.teams.forEach((t, k) => { t.name = teams[k].name.trim() || t.name; t.color = teams[k].color; });
@@ -721,6 +725,72 @@ function settingsModal(tab = 'teams') {
         buildBoard();
         full();
         toast('Canvis desats.');
+      });
+    },
+  });
+}
+
+// ---------- Preparar la partida ----------
+function setupModal() {
+  const r = G.rules();
+  const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
+  const vals = { startMoney: r.startMoney, goSalary: r.goSalary, jailFine: r.jailFine };
+  const body = () => `<p class="lead">Poseu el nom i el color de cada equip i, si voleu, una foto. Després, els diners.</p>
+    <div class="cfg-grid">${teams.map((t, k) => `<div class="cfg-team" style="--tc:${t.color}">
+      <label class="cfg-photo" style="${avatarStyle(t)}" title="Posar una foto">${photoOf(t.id) ? '' : icon('camera')}
+        <input type="file" accept="image/*" data-photo="${k}" aria-label="Foto de l'equip ${k + 1}"></label>
+      <div class="field" style="margin:0"><span>Equip ${k + 1}</span><input type="text" data-tname="${k}" value="${esc(t.name)}" maxlength="28"></div>
+      <input type="color" data-tcolor="${k}" value="${t.color}" aria-label="Color de l'equip ${k + 1}">
+    </div>`).join('')}</div>
+    <div class="cfg-rules" style="margin-top:18px">
+      <label class="field"><span>Diners per començar</span><input type="number" data-r="startMoney" value="${vals.startMoney}" step="50" min="0"></label>
+      <label class="field"><span>Cobrar en passar per la Sortida</span><input type="number" data-r="goSalary" value="${vals.goSalary}" step="10" min="0"></label>
+      <label class="field"><span>Pagar per sortir de la presó</span><input type="number" data-r="jailFine" value="${vals.jailFine}" step="10" min="0"></label>
+    </div>
+    <div class="cfg-team" style="--tc:#FFB020;margin-top:8px">
+      <label class="cfg-photo" style="--tc:#FFB020;${photoOf('jail') ? `background-image:url(${photoOf('jail')})` : ''}" title="Foto per a la presó">${photoOf('jail') ? '' : icon('lock')}
+        <input type="file" accept="image/*" data-photo="jail" aria-label="Foto per a la presó"></label>
+      <div><b>Foto per a la presó</b><div class="muted">Opcional: la cara d'un moni darrere els barrots.</div></div>
+      ${photoOf('jail') ? '<button class="btn btn-ghost" type="button" data-nojail>Treure</button>' : '<span></span>'}
+    </div>
+    <p class="muted" style="margin-top:14px">Les fotos es guarden només en aquest ordinador; no es pugen a internet. Les cartes, el tauler i la resta de regles són a Configuració.</p>`;
+  openModal({
+    title: 'Preparem la partida',
+    wide: true,
+    body: '<div id="setupBody"></div>',
+    foot: '<button class="btn btn-ghost" type="button" data-a="adv">Configuració avançada</button><span class="spacer"></span><button class="btn btn-primary btn-big" type="button" data-a="go">Començar la partida</button>',
+    onMount(d) {
+      const box = d.querySelector('#setupBody');
+      const show = () => { box.innerHTML = body(); };
+      show();
+      box.addEventListener('input', (e) => {
+        const ds = e.target.dataset;
+        if (ds.tname !== undefined) teams[ds.tname].name = e.target.value;
+        if (ds.tcolor !== undefined) { teams[ds.tcolor].color = e.target.value; show(); }
+        if (ds.r !== undefined) vals[ds.r] = Math.max(0, Math.round(Number(e.target.value) || 0));
+      });
+      box.addEventListener('change', async (e) => {
+        const el = e.target;
+        if (el.dataset.photo === undefined || !el.files[0]) return;
+        try {
+          const url = await resizePhoto(el.files[0]);
+          const id = el.dataset.photo === 'jail' ? 'jail' : teams[el.dataset.photo].id;
+          if (!setPhoto(id, url)) toast("No s'ha pogut desar la foto: el navegador no té espai.");
+          show();
+          if (id === 'jail') buildBoard();
+          full();
+        } catch (err) { toast(err.message); }
+      });
+      box.addEventListener('click', (e) => {
+        if (e.target.closest('[data-nojail]')) { setPhoto('jail', ''); show(); buildBoard(); full(); }
+      });
+      d.querySelector('[data-a=adv]').addEventListener('click', () => settingsModal('rules'));
+      d.querySelector('[data-a=go]').addEventListener('click', () => {
+        G.startGame({ teams, rules: vals });
+        dlg.close();
+        buildBoard();
+        full();
+        toast(`Comença ${G.current().name}. Tireu el dau!`);
       });
     },
   });
@@ -757,6 +827,7 @@ const ACTIONS = {
   payjail: () => { G.payJail(); after(); },
   jailcard: () => { G.useJailCard(); after(); },
   resume: openQueue,
+  setup: setupModal,
 };
 
 document.addEventListener('click', (e) => {
@@ -806,7 +877,8 @@ Promise.race([
 ]).catch(() => {}).finally(() => {
   buildBoard(boardHandlers);
   full();
-  openQueue();
+  if (!S().started) setupModal();
+  else openQueue();
 });
 
 // per depurar des de la consola

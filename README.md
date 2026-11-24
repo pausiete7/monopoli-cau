@@ -1,12 +1,13 @@
-# Monopoli del Cau
+# Caupoli
 
-Tauler i banca del Monopoli de Pioners i Caravel·les. Es juga amb quatre equips: el dau és físic (gegant) i la web porta tota la resta: tauler, diners, propietats, cases, hipoteques, cartes, subhastes, intercanvis i minijocs.
+Tauler i banca del Caupoli, el Monopoli de Pioners i Caravel·les. Es juga amb quatre equips: el dau és físic (gegant) i la web porta tota la resta: tauler, diners, propietats, cases, hipoteques, cartes, subhastes, intercanvis i minijocs.
 
 ## Com es fa servir
 
 - **Tirada:** quan surt el dau, cliqueu la cara que ha sortit (o premeu la tecla del número). La fitxa avança sola i la web proposa el que toca.
 - **Passar torn:** botó del centre o tecla Enter.
-- **Minijoc fet:** marqueu quantes cartes bones (+) o dolentes (−) agafa cada equip.
+- **Preparar la partida:** en obrir-la per primer cop surt una pantalla per posar noms, colors, fotos i diners.
+- **Minijoc fet:** marqueu quantes cartes de Bona Acció (+) o de Mal Rotllo (−) agafa cada equip.
 - **Diners:** treure, donar o pagar a un altre equip (duels, proves, premis...).
 - **Intercanvi** i **Subhasta:** a la barra de baix.
 - **Clicar un equip:** construir, vendre cases, hipotecar, moure la fitxa, presó, fallida.

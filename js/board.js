@@ -76,7 +76,9 @@ export function renderDock() {
   const r = rules();
   const pending = state.queue.length > 0;
   let main = '';
-  if (pending) {
+  if (!state.started) {
+    main = `<div class="dock-msg">La partida encara no ha començat</div><button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="setup">Preparar la partida</button>`;
+  } else if (pending) {
     main = `<div class="dock-msg">Hi ha una acció pendent</div><button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="resume">Continuar</button>`;
   } else if (state.phase === 'roll') {
     const faces = r.maxDie > 6 ? Array.from({ length: r.maxDie - 1 }, (_, k) => k + 2) : [1, 2, 3, 4, 5, 6];

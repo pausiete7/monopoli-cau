@@ -16,13 +16,14 @@
   --gold: #FFD84D;
   --good: #23A55A;
   --bad: #D93A2E;
+  --deck-bad: #3A3F96;
 
   --f-display: 'Anybody', 'Arial Narrow', system-ui, sans-serif;
   --f-ui: 'Atkinson Hyperlegible', system-ui, sans-serif;
 
-  --top: 76px;
-  --dock: 136px;
-  --panel: clamp(240px, 18vw, 360px);
+  --top: 68px;
+  --dock: 132px;
+  --panel: clamp(230px, 16.5vw, 330px);
 
   --ease-out: cubic-bezier(.2, .9, .25, 1);
   --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
