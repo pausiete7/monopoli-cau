@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795549462';
-import * as S3 from './scene.js?v=1795549462';
-import { sfx } from './sound.js?v=1795549462';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795549462';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795550234';
+import * as S3 from './scene.js?v=1795550234';
+import { sfx } from './sound.js?v=1795550234';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795550234';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -135,7 +135,9 @@ export function renderTeams(opts = {}) {
         <b class="${light ? 'light' : ''}">${houses}</b><em>${esc(s.name)}</em>${o.mortgaged ? '<small>Hipotecada</small>' : ''}</span>`;
     }).join('');
     const tags = [];
-    if (t.bankrupt) tags.push('<span class="tag bad">En fallida</span>');
+    if (t.bankrupt) tags.push('<span class="tag bad">En fallida: fora de la partida</span>');
+    if (!t.bankrupt && t.money < 0) tags.push('<span class="tag bad">En negatiu: ha de vendre o hipotecar</span>');
+    if (state.winner === k) tags.push(`<span class="tag good">${icon('trophy')}Guanyador</span>`);
     if (t.jail) tags.push(`<span class="tag bad">${icon('lock')}A la presó</span>`);
     if (t.jailCards) tags.push(`<span class="tag good">${icon('key')}Surt de la presó${t.jailCards > 1 ? ` ×${t.jailCards}` : ''}</span>`);
     if (t.skip) tags.push(`<span class="tag bad">${icon('skip')}Perd ${t.skip > 1 ? `${t.skip} torns` : 'el torn'}</span>`);

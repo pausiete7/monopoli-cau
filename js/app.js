@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795549462';
+import * as G from './engine.js?v=1795550234';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795549462';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795549462';
-import * as S3 from './scene.js?v=1795549462';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795549462';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795549462';
+} from './board.js?v=1795550234';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795550234';
+import * as S3 from './scene.js?v=1795550234';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795550234';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795550234';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -21,6 +21,7 @@ function full() {
 }
 
 async function after() {
+  G.checkBankrupt(); // en negatiu i sense res per hipotecar ni vendre: fallida
   if (dlg.open && !dlg.dataset.keep) dlg.close();
   renderCenter();
   await playFx();
@@ -426,6 +427,11 @@ function propRow(i) {
     o.mortgaged ? 'Hipotecada' : `Lloguer ara: ${G.money(G.rentFor(i))}`,
     o.houses ? (o.houses === 5 ? 'Hotel' : `${o.houses} cas${o.houses > 1 ? 'es' : 'a'}`) : '',
   ].filter(Boolean).join('. ');
+  const lock = G.manageError(i);
+  if (lock) {
+    return `<div class="prow"><span class="chip" style="--g:${color}"></span><div><b>${esc(s.name)}</b><div class="meta">${meta}</div></div>
+      <div class="acts"><span class="meta">${icon('lock')} ${esc(lock)}</span></div></div>`;
+  }
   const canB = s.type === 'prop' && !G.canBuild(i);
   return `<div class="prow"><span class="chip" style="--g:${color}"></span><div><b>${esc(s.name)}</b><div class="meta">${meta}</div></div>
     <div class="acts">
@@ -854,7 +860,7 @@ const ACTIONS = {
   settings: () => settingsModal(),
   fullscreen,
   mute: () => { toggleMute(); full(); },
-  endturn: () => { G.endTurn(); after(); },
+  endturn: () => { const err = G.endTurn(); if (err) { toast(err); teamModal(G.state.turn); return; } after(); },
   payjail: () => { G.payJail(); after(); },
   jailcard: () => { G.useJailCard(); after(); },
   resume: openQueue,
@@ -906,8 +912,7 @@ document.addEventListener('keydown', (e) => {
     after();
   } else if (e.key === 'Enter' && G.state.phase === 'end' && !G.state.queue.length) {
     e.preventDefault();
-    G.endTurn();
-    after();
+    ACTIONS.endturn();
   }
 });
 

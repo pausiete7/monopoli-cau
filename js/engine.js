@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795549462';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795550234';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -329,16 +329,25 @@ export function useJailCard() {
 }
 
 export function endTurn() {
-  if (state.queue.length) return;
-  checkpoint();
+  if (state.queue.length) return null;
   const cur = current();
+  if (cur.money < 0 && !cur.bankrupt) {
+    return `${cur.name} està en negatiu: abans de passar torn ha de vendre cases o hipotecar fins a tenir diners.`;
+  }
+  checkpoint();
   if (cur.extra > 0 && !cur.bankrupt) {
     cur.extra--;
     state.phase = 'roll';
     log(`${cur.name} té una tirada extra.`, 'good');
     save();
-    return;
+    return null;
   }
+  advanceTurn();
+  save();
+  return null;
+}
+
+function advanceTurn() {
   let next = state.turn;
   for (let guard = 0; guard < 12; guard++) {
     next = (next + 1) % state.teams.length;
@@ -356,7 +365,6 @@ export function endTurn() {
   state.phase = 'roll';
   state.lastRoll = null;
   push({ type: 'turn', team: next });
-  save();
 }
 
 // ---------- Compres i subhastes ----------
@@ -506,7 +514,17 @@ export function minigame(dist, gameName) {
 }
 
 // ---------- Construir i hipotecar ----------
+// Cases i hipoteques: només l'equip que té el torn (o un equip en números vermells, que ha de pagar)
+export function manageError(i) {
+  const o = state.owners[i];
+  if (!o) return 'No té amo.';
+  if (o.team === state.turn || team(o.team).money < 0) return null;
+  return `Només ho pot fer ${team(o.team).name} quan li toqui`;
+}
+
 export function canBuild(i) {
+  const lock = manageError(i);
+  if (lock) return lock;
   const o = state.owners[i];
   const s = sq(i);
   if (!o || s.type !== 'prop') return 'Només es pot construir en carrers.';
@@ -536,6 +554,7 @@ export function build(i) {
 export function sellHouse(i) {
   const o = state.owners[i];
   if (!o || !o.houses) return 'No hi ha cases per vendre.';
+  if (manageError(i)) return manageError(i);
   const g = groupSquares(sq(i).group);
   const max = Math.max(...g.map((j) => state.owners[j].houses));
   if (o.houses < max) return 'Cal vendre de manera igualada dins del grup.';
@@ -550,6 +569,7 @@ export function sellHouse(i) {
 export function toggleMortgage(i) {
   const o = state.owners[i];
   if (!o) return 'No té amo.';
+  if (manageError(i)) return manageError(i);
   const s = sq(i);
   if (!o.mortgaged) {
     if (s.group && groupSquares(s.group).some((j) => state.owners[j]?.houses)) return 'Primer cal vendre les cases del grup.';
@@ -643,14 +663,41 @@ export function setJailCards(t, n) {
 
 export function bankrupt(t) {
   checkpoint();
+  goBankrupt(t);
+  save();
+}
+
+function goBankrupt(t) {
   const T = team(t);
   propsOf(t).forEach((i) => delete state.owners[i]);
   T.bankrupt = true;
   T.money = 0;
-  log(`${T.name} fa fallida. Les seves propietats tornen al banc.`, 'bad');
-  push({ type: 'banner', text: 'Fallida!', tone: 'bad', team: t });
-  save();
-  if (state.turn === t) { state.queue = []; endTurn(); }
+  T.jail = false;
+  log(`${T.name} fa fallida i queda fora de la partida. Les seves propietats tornen al banc.`, 'bad');
+  push({ type: 'banner', text: 'Fallida!', tone: 'bad', team: t, sub: `${T.name} queda fora` });
+  state.queue = state.queue.filter((q) => q.team !== t);
+  if (state.turn === t) advanceTurn();
+  const left = activeTeams();
+  if (left.length === 1) {
+    const w = team(left[0]);
+    state.winner = left[0];
+    log(`${w.name} guanya el Caupoli!`, 'good');
+    push({ type: 'banner', text: `Guanya ${w.name}!`, tone: 'good', team: left[0], sub: 'Tots els altres equips han fet fallida' });
+    push({ type: 'confetti', team: left[0] });
+  }
+}
+
+// pot aconseguir diners venent cases o hipotecant?
+export const canRaise = (t) => propsOf(t).some((i) => state.owners[i].houses > 0 || !state.owners[i].mortgaged);
+
+// Fallida automàtica: en negatiu i sense res més per vendre ni hipotecar
+export function checkBankrupt() {
+  let any = false;
+  state.teams.forEach((T, t) => {
+    if (!T.bankrupt && T.money < 0 && !canRaise(t)) { goBankrupt(t); any = true; }
+  });
+  if (any) save();
+  return any;
 }
 
 export function revive(t) {
