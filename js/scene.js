@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795556788';
-import { photoOf, initials } from './util.js?v=1795556788';
-import { deckName } from './data.js?v=1795556788';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557190';
+import { photoOf, initials } from './util.js?v=1795557190';
+import { deckName } from './data.js?v=1795557190';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -329,26 +329,26 @@ function drawJail(ctx, x, y, w, h, name) {
     ctx.fillRect(cx, cy, cw, cw);
   }
   // ombra dels barrots a terra
-  ctx.fillStyle = 'rgba(0,0,0,.18)';
-  for (let k = 1; k < 6; k++) ctx.fillRect(cx + (cw / 6) * k + 18, cy, 22, cw);
+  ctx.fillStyle = 'rgba(0,0,0,.14)';
+  for (let k = 1; k < 6; k++) ctx.fillRect(cx + (cw / 6) * k + 9, cy, 9, cw);
   ctx.restore();
-  // barrots metàl·lics
+  // barrots metàl·lics (fins, perquè es vegi bé la foto de dins)
   const bar = (bx) => {
-    const bg = ctx.createLinearGradient(bx - 16, 0, bx + 16, 0);
+    const bg = ctx.createLinearGradient(bx - 7, 0, bx + 7, 0);
     bg.addColorStop(0, '#4A4E60');
     bg.addColorStop(0.4, '#F2F4FA');
     bg.addColorStop(0.6, '#C9CDDA');
     bg.addColorStop(1, '#3E4152');
     ctx.fillStyle = bg;
-    roundRect(ctx, bx - 16, cy - 10, 32, cw + 20, 16);
+    roundRect(ctx, bx - 7, cy - 6, 14, cw + 12, 7);
     ctx.fill();
   };
   for (let k = 1; k < 6; k++) bar(cx + (cw / 6) * k);
   // travesser horitzontal
-  const tg = ctx.createLinearGradient(0, cy + cw * 0.3 - 16, 0, cy + cw * 0.3 + 16);
+  const tg = ctx.createLinearGradient(0, cy + cw * 0.3 - 7, 0, cy + cw * 0.3 + 7);
   tg.addColorStop(0, '#4A4E60'); tg.addColorStop(0.45, '#F2F4FA'); tg.addColorStop(1, '#3E4152');
   ctx.fillStyle = tg;
-  ctx.fillRect(cx, cy + cw * 0.3 - 14, cw, 28);
+  ctx.fillRect(cx, cy + cw * 0.3 - 6, cw, 12);
   ctx.lineWidth = 12;
   ctx.strokeStyle = INK;
   ctx.strokeRect(cx + 6, cy - 6, cw, cw);
@@ -1359,7 +1359,7 @@ let coinMat = null;
 // salten monedes d'una casella (o d'un punt) i cauen girant
 export function coinBurst(i, n = 12, { power = 1 } = {}) {
   if (reduced() || !scene) return;
-  coinGeo = coinGeo || new THREE.CylinderGeometry(0.09, 0.09, 0.022, 24);
+  coinGeo = coinGeo || new THREE.CylinderGeometry(0.15, 0.15, 0.035, 28);
   coinMat = coinMat || new THREE.MeshStandardMaterial({ color: 0xFFC83D, metalness: 0.85, roughness: 0.28, emissive: 0x3a2400, emissiveIntensity: 0.3 });
   const c = center(rect(i));
   for (let k = 0; k < n; k++) {
@@ -1367,16 +1367,16 @@ export function coinBurst(i, n = 12, { power = 1 } = {}) {
     m.castShadow = true;
     m.position.set(c.x + rnd3(0.15), 0.05, c.z + rnd3(0.15));
     scene.add(m);
-    const vx = rnd3(0.9) * power; const vz = rnd3(0.9) * power; const vy = (2.2 + Math.random() * 1.4) * power;
+    const vx = rnd3(1.1) * power; const vz = rnd3(1.1) * power; const vy = (3.4 + Math.random() * 1.8) * power;
     const spin = (Math.random() * 14 + 6) * (Math.random() < 0.5 ? -1 : 1);
-    const delay = k * 25;
-    const dur = 1000 + Math.random() * 300;
+    const delay = k * 35;
+    const dur = 1500 + Math.random() * 400;
     setTimeout(() => {
       tween(dur, (t) => {
         const s = t * dur / 1000;
         m.position.x = c.x + vx * s;
         m.position.z = c.z + vz * s;
-        m.position.y = Math.max(0.02, 0.05 + vy * s - 4.6 * s * s);
+        m.position.y = Math.max(0.02, 0.05 + vy * s - 5.2 * s * s);
         m.rotation.x = spin * s;
         m.rotation.z = spin * 0.6 * s;
         const sc = t > 0.75 ? 1 - (t - 0.75) / 0.25 : 1;
@@ -1393,11 +1393,16 @@ export function bouncePlaque(i) {
   if (!p || reduced()) return;
   const m = p.mesh;
   const y0 = 0.025;
-  tween(650, (t) => {
-    m.position.y = y0 + Math.sin(Math.PI * t) * 0.35 * (1 - t * 0.3);
-    const s = 1 + Math.sin(Math.PI * t) * 0.25;
-    m.scale.set(s, 1, s);
-  }, ease.out).then(() => { m.position.y = y0; m.scale.set(1, 1, 1); });
+  // tres bots que es van fent petits, i la placa creix mentre salta
+  tween(1500, (t) => {
+    const b = Math.abs(Math.sin(Math.PI * 3 * t)) * (1 - t);
+    m.position.y = y0 + b * 0.9;
+    const s = 1 + b * 0.8;
+    m.scale.set(s, 1 + b * 2, s);
+    m.rotation.x = Math.sin(Math.PI * 6 * t) * 0.15 * (1 - t);
+  }, ease.linear).then(() => { m.position.y = y0; m.scale.set(1, 1, 1); m.rotation.x = 0; });
+  const o = state.owners[i];
+  if (o) pulse(i, new THREE.Color(team(o.team).color).getHex());
 }
 
 // cara d'una carta: capçalera del color del mall, el text i el resum de l'efecte

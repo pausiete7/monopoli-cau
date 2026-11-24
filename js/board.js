@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795556788';
-import * as S3 from './scene.js?v=1795556788';
-import { sfx } from './sound.js?v=1795556788';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795556788';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795557190';
+import * as S3 from './scene.js?v=1795557190';
+import { sfx } from './sound.js?v=1795557190';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795557190';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -365,8 +365,10 @@ export async function playFx() {
           break;
         case 'rent':
           // tiquet de lloguer: qui paga, a qui, per quina casella i per què; monedes saltant de la casella
-          S3.coinBurst(e.square, 14);
+          S3.coinBurst(e.square, 22);
           S3.bouncePlaque(e.square);
+          sfx.coins();
+          await wait(reduced() ? 0 : 1100); // primer es veuen les monedes i la placa
           sfx.pay();
           await rentTicket(e);
           break;
@@ -416,8 +418,8 @@ async function rentTicket(e) {
     { transform: 'translate(-50%, -50%) scale(1) rotate(-1deg)', opacity: 1, offset: 0.2 },
     { transform: 'translate(-50%, -50%) scale(1) rotate(-1deg)', opacity: 1, offset: 0.85 },
     { transform: 'translate(-50%, -58%) scale(.92) rotate(-1deg)', opacity: 0 },
-  ], { duration: 2300, easing: 'ease-out' });
-  await Promise.race([a.finished.catch(() => {}), wait(2500)]);
+  ], { duration: 4200, easing: 'ease-out' });
+  await Promise.race([a.finished.catch(() => {}), wait(4400)]);
   el.remove();
 }
 
