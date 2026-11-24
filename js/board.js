@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795556498';
-import * as S3 from './scene.js?v=1795556498';
-import { sfx } from './sound.js?v=1795556498';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795556498';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795556788';
+import * as S3 from './scene.js?v=1795556788';
+import { sfx } from './sound.js?v=1795556788';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795556788';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -363,6 +363,13 @@ export async function playFx() {
           confetti(team(e.team).color);
           sfx.good();
           break;
+        case 'rent':
+          // tiquet de lloguer: qui paga, a qui, per quina casella i per què; monedes saltant de la casella
+          S3.coinBurst(e.square, 14);
+          S3.bouncePlaque(e.square);
+          sfx.pay();
+          await rentTicket(e);
+          break;
         case 'turn':
           // canvi de torn: la càmera va a la seva fitxa, apareix el halo i passa la franja
           S3.setTurn(e.team);
@@ -384,6 +391,35 @@ export async function playFx() {
 }
 
 export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
+
+// tiquet de lloguer
+async function rentTicket(e) {
+  const P = team(e.team);
+  const O = team(e.owner);
+  const s = sq(e.square);
+  const color = s.type === 'station' ? '#2A2C5E' : state.config.groups[s.group]?.color || '#999';
+  const el = document.createElement('div');
+  el.className = 'rent-ticket';
+  el.innerHTML = `<div class="rt-head" style="--g:${color}"><small>Lloguer</small><b>${esc(s.name)}</b></div>
+    <div class="rt-who">
+      <span class="rt-team" style="--tc:${P.color}"><span class="rt-av" style="${avatarStyle(P)}">${avatarText(P)}</span><span>${esc(P.name)}</span><em>paga</em></span>
+      <span class="rt-arrow">${icon('next')}</span>
+      <span class="rt-team" style="--tc:${O.color}"><span class="rt-av" style="${avatarStyle(O)}">${avatarText(O)}</span><span>${esc(O.name)}</span><em>cobra</em></span>
+    </div>
+    <div class="rt-amount">${money(e.amount)}</div>
+    <div class="rt-why">${esc(e.why || '')}</div>`;
+  $('#fx').appendChild(el);
+  if (reduced()) { await wait(900); el.remove(); return; }
+  const a = el.animate([
+    { transform: 'translate(-50%, -40%) scale(.6) rotate(-8deg)', opacity: 0 },
+    { transform: 'translate(-50%, -50%) scale(1.04) rotate(2deg)', opacity: 1, offset: 0.12 },
+    { transform: 'translate(-50%, -50%) scale(1) rotate(-1deg)', opacity: 1, offset: 0.2 },
+    { transform: 'translate(-50%, -50%) scale(1) rotate(-1deg)', opacity: 1, offset: 0.85 },
+    { transform: 'translate(-50%, -58%) scale(.92) rotate(-1deg)', opacity: 0 },
+  ], { duration: 2300, easing: 'ease-out' });
+  await Promise.race([a.finished.catch(() => {}), wait(2500)]);
+  el.remove();
+}
 
 // franja que creua la pantalla: «Li toca a …»
 let mutedRef = () => false;

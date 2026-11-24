@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795556498';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795556788';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -131,6 +131,21 @@ export function rentFor(i) {
   return s.rent[0] * (ownsGroup(o.team, s.group) ? 2 : 1);
 }
 
+// per què el lloguer val el que val (es mostra al tiquet)
+export function rentReason(i) {
+  const o = state.owners[i];
+  if (!o) return '';
+  const s = sq(i);
+  if (s.type === 'station') {
+    const n = state.config.board.filter((x, j) => x.type === 'station' && ownerOf(j) === o.team).length;
+    return n > 1 ? `Té ${n} estacions` : 'Té 1 estació';
+  }
+  if (o.houses === 5) return 'Amb hotel';
+  if (o.houses > 0) return `Amb ${o.houses} ${o.houses > 1 ? 'cases' : 'casa'}`;
+  if (ownsGroup(o.team, s.group)) return 'Grup complet: lloguer doble';
+  return 'Lloguer sense cases';
+}
+
 export function netWorth(t) {
   let w = team(t).money;
   propsOf(t).forEach((i) => {
@@ -230,8 +245,9 @@ function land(t, front = false) {
       else if (o !== t) {
         const r = rentFor(i);
         if (r > 0) {
+          // primer el tiquet de lloguer (amb el perquè de l'import) i després els diners
+          push({ type: 'rent', team: t, owner: o, square: i, amount: r, why: rentReason(i) });
           transfer(t, o, r, 'lloguer');
-          push({ type: 'banner', text: `Lloguer: ${money(r)}`, tone: 'bad', team: t, sub: `${T.name} paga a ${name(o)}` });
           log(`${T.name} paga ${money(r)} de lloguer a ${name(o)} per ${s.name}.`, 'bad');
         } else {
           log(`${s.name} està hipotecada: ${T.name} no paga res.`, 'info');

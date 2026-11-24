@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795556498';
+import * as G from './engine.js?v=1795556788';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795556498';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795556498';
-import * as S3 from './scene.js?v=1795556498';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795556498';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795556498';
+} from './board.js?v=1795556788';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795556788';
+import * as S3 from './scene.js?v=1795556788';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795556788';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795556788';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];

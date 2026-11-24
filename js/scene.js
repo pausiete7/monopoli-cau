@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795556498';
-import { photoOf, initials } from './util.js?v=1795556498';
-import { deckName } from './data.js?v=1795556498';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795556788';
+import { photoOf, initials } from './util.js?v=1795556788';
+import { deckName } from './data.js?v=1795556788';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1351,6 +1351,53 @@ export function pulse(i, color = 0xFFD84D) {
     const s = 1 + t * 0.12;
     m.scale.set(s, s, 1);
   }, ease.out).then(() => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+}
+
+// ---------- Monedes 3D ----------
+let coinGeo = null;
+let coinMat = null;
+// salten monedes d'una casella (o d'un punt) i cauen girant
+export function coinBurst(i, n = 12, { power = 1 } = {}) {
+  if (reduced() || !scene) return;
+  coinGeo = coinGeo || new THREE.CylinderGeometry(0.09, 0.09, 0.022, 24);
+  coinMat = coinMat || new THREE.MeshStandardMaterial({ color: 0xFFC83D, metalness: 0.85, roughness: 0.28, emissive: 0x3a2400, emissiveIntensity: 0.3 });
+  const c = center(rect(i));
+  for (let k = 0; k < n; k++) {
+    const m = new THREE.Mesh(coinGeo, coinMat);
+    m.castShadow = true;
+    m.position.set(c.x + rnd3(0.15), 0.05, c.z + rnd3(0.15));
+    scene.add(m);
+    const vx = rnd3(0.9) * power; const vz = rnd3(0.9) * power; const vy = (2.2 + Math.random() * 1.4) * power;
+    const spin = (Math.random() * 14 + 6) * (Math.random() < 0.5 ? -1 : 1);
+    const delay = k * 25;
+    const dur = 1000 + Math.random() * 300;
+    setTimeout(() => {
+      tween(dur, (t) => {
+        const s = t * dur / 1000;
+        m.position.x = c.x + vx * s;
+        m.position.z = c.z + vz * s;
+        m.position.y = Math.max(0.02, 0.05 + vy * s - 4.6 * s * s);
+        m.rotation.x = spin * s;
+        m.rotation.z = spin * 0.6 * s;
+        const sc = t > 0.75 ? 1 - (t - 0.75) / 0.25 : 1;
+        m.scale.set(sc, sc, sc);
+      }, ease.linear).then(() => scene.remove(m));
+    }, delay);
+  }
+}
+const rnd3 = (a) => (Math.random() * 2 - 1) * a;
+
+// la placa de l'amo fa un bot (qui cobra)
+export function bouncePlaque(i) {
+  const p = plaques[i];
+  if (!p || reduced()) return;
+  const m = p.mesh;
+  const y0 = 0.025;
+  tween(650, (t) => {
+    m.position.y = y0 + Math.sin(Math.PI * t) * 0.35 * (1 - t * 0.3);
+    const s = 1 + Math.sin(Math.PI * t) * 0.25;
+    m.scale.set(s, 1, s);
+  }, ease.out).then(() => { m.position.y = y0; m.scale.set(1, 1, 1); });
 }
 
 // cara d'una carta: capçalera del color del mall, el text i el resum de l'efecte

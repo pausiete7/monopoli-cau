@@ -505,6 +505,43 @@ button:disabled { cursor: not-allowed; }
 .fly.bad { background: linear-gradient(180deg, #FF7B6B, var(--bad)); }
 .confetti { position: absolute; top: -20px; width: 11px; height: 17px; border-radius: 3px; }
 
+/* tiquet de lloguer */
+.rent-ticket {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(560px, 90vw);
+  padding: 0 0 18px;
+  border-radius: 26px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 10px 0 #A9AFD3, 0 30px 80px rgba(0, 0, 0, .55);
+  text-align: center;
+  overflow: hidden;
+}
+.rent-ticket::before, .rent-ticket::after {
+  /* forats de tiquet als costats */
+  content: '';
+  position: absolute;
+  top: 118px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--night-2);
+}
+.rent-ticket::before { left: -17px; }
+.rent-ticket::after { right: -17px; }
+.rt-head { padding: 14px 20px 16px; background: var(--g); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .2); }
+.rt-head small { display: block; font: 800 18px/1 var(--f-display); opacity: .9; letter-spacing: .04em; }
+.rt-head b { display: block; font: 900 36px/1.05 var(--f-display); font-variation-settings: 'wdth' 90; margin-top: 4px; }
+.rt-who { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 22px 18px 6px; border-top: 3px dashed #D6DAEC; margin-top: 12px; }
+.rt-team { display: grid; justify-items: center; gap: 4px; font-weight: 800; font-size: 17px; min-width: 0; }
+.rt-team em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.rt-av { width: 70px; height: 70px; border-radius: 50%; background: var(--tc) center / cover; border: 4px solid #fff; box-shadow: 0 0 0 3px var(--tc); display: grid; place-items: center; color: #fff; font: 900 24px/1 var(--f-display); }
+.rt-arrow svg { width: 40px; height: 40px; color: var(--bad); }
+.rt-amount { font: 900 64px/1 var(--f-display); font-variation-settings: 'wdth' 105; color: var(--bad); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.rt-why { display: inline-block; margin-top: 8px; padding: 5px 14px; border-radius: 999px; background: var(--paper-2); font-weight: 700; font-size: 16px; }
+
 /* canvi de torn */
 .turnband {
   position: absolute;
