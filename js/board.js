@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795549094';
-import * as S3 from './scene.js?v=1795549094';
-import { sfx } from './sound.js?v=1795549094';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795549094';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795549462';
+import * as S3 from './scene.js?v=1795549462';
+import { sfx } from './sound.js?v=1795549462';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795549462';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -113,7 +113,7 @@ export const renderCenter = renderDock;
 
 // ---------- Targetes dels equips ----------
 const shownMoney = {};
-export function renderTeams() {
+export function renderTeams(opts = {}) {
   const html = (t, k) => {
     // títols de propietat en miniatura, posats un al costat de l'altre com damunt la taula
     const props = propsOf(k);
@@ -153,31 +153,40 @@ export function renderTeams() {
   $('#teamsL').innerHTML = state.teams.slice(0, half).map((t, k) => html(t, k)).join('');
   $('#teamsR').innerHTML = state.teams.slice(half).map((t, k) => html(t, k + half)).join('');
   seenDeeds.ready = true;
-  state.teams.forEach((t, k) => tweenMoney(k, t.money));
+  state.teams.forEach((t, k) => tweenMoney(k, k === opts.hold ? t.money - opts.amount : t.money));
 }
 const seenDeeds = new Set();
 
+const tweenToken = {};
 function tweenMoney(k, target) {
   const el = $(`[data-money="${k}"]`);
   if (!el) return;
   const from = shownMoney[k] ?? target;
-  if (from === target) { shownMoney[k] = target; el.textContent = money(target); return; }
+  if (from === target) { if (!tweenToken[k + 'run']) el.textContent = money(target); shownMoney[k] = target; return; }
+  const token = (tweenToken[k] = (tweenToken[k] || 0) + 1); // un compte nou anul·la l'anterior
   el.classList.remove('flash-up', 'flash-down');
   void el.offsetWidth;
   el.classList.add(target > from ? 'flash-up' : 'flash-down');
-  if (reduced()) { shownMoney[k] = target; el.textContent = money(target); return; }
+  shownMoney[k] = target;
+  if (reduced()) { el.textContent = money(target); return; }
   const t0 = performance.now();
-  const dur = 800;
+  const dur = 1400;
+  tweenToken[k + 'run'] = true;
   const step = (now) => {
+    if (tweenToken[k] !== token) return;
     const p = Math.min(1, (now - t0) / dur);
     const e = 1 - (1 - p) ** 3;
     const live = $(`[data-money="${k}"]`);
     if (live) live.textContent = money(Math.round(from + (target - from) * e));
-    if (p < 1) requestAnimationFrame(step);
+    if (p < 1) requestAnimationFrame(step); else tweenToken[k + 'run'] = false;
   };
   requestAnimationFrame(step);
-  shownMoney[k] = target;
-  setTimeout(() => { const live = $(`[data-money="${k}"]`); if (live) live.textContent = money(state.teams[k]?.money ?? target); }, dur + 60);
+  setTimeout(() => {
+    if (tweenToken[k] !== token) return;
+    tweenToken[k + 'run'] = false;
+    const live = $(`[data-money="${k}"]`);
+    if (live) live.textContent = money(target);
+  }, dur + 80);
 }
 
 // ---------- Efectes ----------
@@ -232,20 +241,29 @@ function flyMoney(from, to, amount) {
       { transform: `translate(${a.x + jitter}px, ${a.y - 40}px) translate(-50%, -50%) rotate(${jitter}deg) scale(1)`, opacity: 1, offset: 0.15 },
       { transform: `translate(${(a.x + b.x) / 2 + jitter}px, ${Math.min(a.y, b.y) - lift}px) translate(-50%, -50%) rotate(${jitter * 4}deg) scale(1)`, opacity: 1, offset: 0.55 },
       { transform: `translate(${b.x}px, ${b.y}px) translate(-50%, -50%) rotate(${jitter * 6}deg) scale(.6)`, opacity: 0 },
-    ], { duration: 1000, delay: k * 70, easing: 'cubic-bezier(.4,0,.2,1)' }).finished.then(() => el.remove());
+    ], { duration: 1900, delay: k * 150, easing: 'cubic-bezier(.4,0,.2,1)' }).finished.then(() => el.remove());
   }
-  const label = document.createElement('div');
-  label.className = `fly ${toTeam ? 'good' : 'bad'}`;
-  label.textContent = `${toTeam ? '+' : '−'}${money(amount)}`;
-  layer.appendChild(label);
-  const end = toTeam ? b : a;
-  label.animate([
-    { transform: `translate(${end.x}px, ${end.y}px) translate(-50%, -50%) scale(.6)`, opacity: 0 },
-    { transform: `translate(${end.x}px, ${end.y - 50}px) translate(-50%, -50%) scale(1.1)`, opacity: 1, offset: 0.25 },
-    { transform: `translate(${end.x}px, ${end.y - 70}px) translate(-50%, -50%) scale(1)`, opacity: 1, offset: 0.8 },
-    { transform: `translate(${end.x}px, ${end.y - 90}px) translate(-50%, -50%) scale(.9)`, opacity: 0 },
-  ], { duration: 1500, delay: toTeam ? 600 : 0, fill: 'backwards', easing: 'ease-out' }).finished.then(() => label.remove());
+  // etiqueta de quant: −X a qui paga i +X a qui cobra (quan arriben els bitllets)
+  const tag = (pos, good, delay) => {
+    const label = document.createElement('div');
+    label.className = `fly ${good ? 'good' : 'bad'}`;
+    label.textContent = `${good ? '+' : '−'}${money(amount)}`;
+    layer.appendChild(label);
+    label.animate([
+      { transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) scale(.6)`, opacity: 0 },
+      { transform: `translate(${pos.x}px, ${pos.y - 50}px) translate(-50%, -50%) scale(1.15)`, opacity: 1, offset: 0.2 },
+      { transform: `translate(${pos.x}px, ${pos.y - 70}px) translate(-50%, -50%) scale(1)`, opacity: 1, offset: 0.85 },
+      { transform: `translate(${pos.x}px, ${pos.y - 90}px) translate(-50%, -50%) scale(.9)`, opacity: 0 },
+    ], { duration: 2600, delay, fill: 'backwards', easing: 'ease-out' }).finished.then(() => label.remove());
+  };
+  if (typeof from === 'number') tag(a, false, 0);
+  if (toTeam) tag(b, true, 1300 + n * 100);
 }
+export const moneyDuration = (amount) => {
+  let n = 0; let rest = Math.abs(amount);
+  for (const d of BILLS) while (rest >= d.v && n < 9) { n++; rest -= d.v; }
+  return 1900 + Math.max(1, n) * 150;
+};
 
 export async function banner(text, tone = 'good', sub = '') {
   const b = $('#banner');
@@ -302,12 +320,18 @@ export async function playFx() {
           setTimeout(() => S3.focus(false), 350);
           await wait(reduced() ? 0 : 250);
           break;
-        case 'money':
+        case 'money': {
           flyMoney(e.from, e.to, e.amount);
-          if (typeof e.to === 'number') sfx.cash(); else sfx.pay();
-          renderTeams();
-          await wait(reduced() ? 0 : 320);
+          const both = typeof e.from === 'number' && typeof e.to === 'number';
+          if (typeof e.from === 'number') sfx.pay();
+          // qui paga baixa de seguida; qui cobra puja quan li arriben els bitllets
+          renderTeams({ hold: typeof e.to === 'number' ? e.to : null, amount: e.amount });
+          const dur = moneyDuration(e.amount);
+          if (typeof e.to === 'number') setTimeout(() => { sfx.cash(); renderTeams(); }, reduced() ? 0 : dur - 500);
+          // el lloguer entre equips es veu sencer abans de continuar; la resta, una mica més ràpid
+          await wait(reduced() ? 0 : both ? dur + 300 : Math.min(1400, dur * 0.6));
           break;
+        }
         case 'buy':
           S3.refresh(true);
           S3.pulse(e.square, 0xFFFFFF);
