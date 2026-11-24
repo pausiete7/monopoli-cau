@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557190';
-import { photoOf, initials } from './util.js?v=1795557190';
-import { deckName } from './data.js?v=1795557190';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795557310';
+import { photoOf, initials } from './util.js?v=1795557310';
+import { deckName } from './data.js?v=1795557310';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -319,8 +319,6 @@ function drawJail(ctx, x, y, w, h, name) {
   if (jailImg) {
     const s = Math.min(jailImg.width, jailImg.height);
     ctx.drawImage(jailImg, (jailImg.width - s) / 2, (jailImg.height - s) / 2, s, s, cx, cy, cw, cw);
-    ctx.fillStyle = 'rgba(20,20,50,.18)';
-    ctx.fillRect(cx, cy, cw, cw);
   } else {
     const wall = ctx.createRadialGradient(cx + cw / 2, cy + cw * 0.35, 20, cx + cw / 2, cy + cw / 2, cw * 0.8);
     wall.addColorStop(0, '#5B6488');
@@ -329,42 +327,39 @@ function drawJail(ctx, x, y, w, h, name) {
     ctx.fillRect(cx, cy, cw, cw);
   }
   // ombra dels barrots a terra
-  ctx.fillStyle = 'rgba(0,0,0,.14)';
-  for (let k = 1; k < 6; k++) ctx.fillRect(cx + (cw / 6) * k + 9, cy, 9, cw);
   ctx.restore();
-  // barrots metàl·lics (fins, perquè es vegi bé la foto de dins)
+  // barrots metàl·lics molt fins: la foto de dins s'ha de veure bé
   const bar = (bx) => {
-    const bg = ctx.createLinearGradient(bx - 7, 0, bx + 7, 0);
-    bg.addColorStop(0, '#4A4E60');
-    bg.addColorStop(0.4, '#F2F4FA');
-    bg.addColorStop(0.6, '#C9CDDA');
+    const bg = ctx.createLinearGradient(bx - 4, 0, bx + 4, 0);
+    bg.addColorStop(0, '#3E4152');
+    bg.addColorStop(0.45, '#F2F4FA');
     bg.addColorStop(1, '#3E4152');
     ctx.fillStyle = bg;
-    roundRect(ctx, bx - 7, cy - 6, 14, cw + 12, 7);
+    roundRect(ctx, bx - 4, cy - 4, 8, cw + 8, 4);
     ctx.fill();
   };
-  for (let k = 1; k < 6; k++) bar(cx + (cw / 6) * k);
-  // travesser horitzontal
-  const tg = ctx.createLinearGradient(0, cy + cw * 0.3 - 7, 0, cy + cw * 0.3 + 7);
-  tg.addColorStop(0, '#4A4E60'); tg.addColorStop(0.45, '#F2F4FA'); tg.addColorStop(1, '#3E4152');
-  ctx.fillStyle = tg;
-  ctx.fillRect(cx, cy + cw * 0.3 - 6, cw, 12);
+  for (let k = 1; k < 5; k++) bar(cx + (cw / 5) * k);
+  // travesser horitzontal, també fi
+  ctx.fillStyle = '#C9CDDA';
+  ctx.fillRect(cx, cy + cw * 0.22 - 3, cw, 6);
   ctx.lineWidth = 12;
   ctx.strokeStyle = INK;
   ctx.strokeRect(cx + 6, cy - 6, cw, cw);
   // cartell
-  setFont(ctx, 900, 92, 'expanded');
+  // cartell més petit, a cavall de la vora de baix: no tapa la cara de la foto
+  setFont(ctx, 900, 64, 'expanded');
   const label = name.toUpperCase();
-  const tw = ctx.measureText(label).width + 70;
-  roundRect(ctx, cx + cw / 2 - tw / 2, cy + cw - 135, tw, 112, 22);
+  const tw = ctx.measureText(label).width + 50;
+  roundRect(ctx, cx + cw / 2 - tw / 2, cy + cw - 38, tw, 76, 18);
   ctx.fillStyle = '#FFB020';
   ctx.fill();
-  ctx.lineWidth = 9;
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = INK;
   ctx.stroke();
   ctx.fillStyle = INK;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, cx + cw / 2, cy + cw - 76);
+  ctx.fillText(label, cx + cw / 2, cy + cw + 2);
   // "només de visita", de cara a qui mira, a la franja de baix
   setFont(ctx, 850, 66, 'condensed');
   ctx.fillStyle = INK;
