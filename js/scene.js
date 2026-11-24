@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795554515';
-import { photoOf, initials } from './util.js?v=1795554515';
-import { deckName } from './data.js?v=1795554515';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795554820';
+import { photoOf, initials } from './util.js?v=1795554820';
+import { deckName } from './data.js?v=1795554820';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1412,19 +1412,17 @@ export async function drawCard(deck, card) {
   pivot.rotation.y = d.group.rotation.y;
   scene.add(pivot);
   liveCard = { pivot, mesh, mats: [side, backM, faceM] };
-  // destí: una mica més amunt i cap al centre, inclinada cap a la càmera
-  const end = new THREE.Vector3(start.x * 0.55, 1.15, start.z + 0.25);
-  const tilt = (Math.PI / 2 - ELEV) * 0.9;
+  // 1) s'aixeca de la pila; 2) ve cap a tu mentre es gira de cap per avall a cap per amunt, sempre plana
+  const lifted = new THREE.Vector3(start.x, start.y + 0.45, start.z);
+  const toward = new THREE.Vector3().lerpVectors(new THREE.Vector3(0, 0.6, 0.6), camera.position, 0.5);
   sfxHook?.('flip');
-  await tween(380, (t) => {
-    pivot.position.y = start.y + (end.y - start.y) * 0.5 * t;
-  }, ease.out);
-  await tween(620, (t) => {
-    pivot.position.lerpVectors(new THREE.Vector3(start.x, start.y + (end.y - start.y) * 0.5, start.z), end, t);
+  await tween(320, (t) => { pivot.position.lerpVectors(start, lifted, t); }, ease.out);
+  await tween(820, (t) => {
+    pivot.position.lerpVectors(lifted, toward, t);
+    pivot.position.y += Math.sin(Math.PI * t) * 0.35; // un petit arc
     pivot.rotation.y = d.group.rotation.y * (1 - t);
-    mesh.rotation.z = Math.PI * t; // es gira com una carta de veritat
-    pivot.rotation.x = -tilt * t;
-    const sc = 1 + 0.25 * t;
+    mesh.rotation.z = Math.PI * t; // gir sobre el costat llarg, com quan gires una carta a la taula
+    const sc = 1 + 0.35 * t;
     pivot.scale.set(sc, sc, sc);
   }, ease.inOut);
 }
@@ -1450,4 +1448,6 @@ export const setSfxHook = (fn) => { sfxHook = fn; };
 
 export function setTurn(k) { turnTeam = k; }
 export const debugCanvas = () => boardCanvas;
+// per a proves amb la pestanya en segon pla (sense requestAnimationFrame)
+export function renderOnce() { placeCamera(baseDist, camCur.x, camCur.z, camCur.k); renderer.render(scene, camera); }
 export const isAnimating = () => animating.size > 0;
