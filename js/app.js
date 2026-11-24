@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795555692';
+import * as G from './engine.js?v=1795556165';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
-  icon, esc, toast, drawCardFx,
-} from './board.js?v=1795555692';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795555692';
-import * as S3 from './scene.js?v=1795555692';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795555692';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795555692';
+  icon, esc, toast, drawCardFx, setMutedRef,
+} from './board.js?v=1795556165';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795556165';
+import * as S3 from './scene.js?v=1795556165';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795556165';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795556165';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1001,6 +1001,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------- Arrencada ----------
+setMutedRef(isMuted);
 G.load();
 const boardHandlers = {
   onSquare: (i) => { if (!busyNow()) squareModal(i); },

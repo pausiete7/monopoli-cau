@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795555692';
-import { photoOf, initials } from './util.js?v=1795555692';
-import { deckName } from './data.js?v=1795555692';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795556165';
+import { photoOf, initials } from './util.js?v=1795556165';
+import { deckName } from './data.js?v=1795556165';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -882,6 +882,15 @@ export function initScene(el, h) {
   hoverMesh.visible = false;
   scene.add(hoverMesh);
 
+  // halo de llum a terra sota la fitxa de l'equip que juga
+  halo = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.4, 56), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false }));
+  halo.rotation.x = -Math.PI / 2;
+  halo.renderOrder = 2;
+  scene.add(halo);
+  haloFill = new THREE.Mesh(new THREE.CircleGeometry(0.24, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false }));
+  haloFill.rotation.x = -Math.PI / 2;
+  scene.add(haloFill);
+
   el.addEventListener('pointermove', onPointerMove);
   el.addEventListener('pointerleave', () => { hoverMesh.visible = false; el.style.cursor = ''; });
   el.addEventListener('click', onClick);
@@ -1027,6 +1036,7 @@ function loop(now) {
       inner.position.y += (0 - inner.position.y) * 0.2;
     }
   });
+  updateHalo(now);
   // la càmera segueix el punt d'interès amb suavitat (sense salts)
   const a = reduced() ? 1 : 1 - Math.exp(-dt * 2.6);
   camCur.x += (camFocus.x - camCur.x) * a;
@@ -1449,7 +1459,39 @@ export function dropCard(instant = false, id = null) {
 let sfxHook = null;
 export const setSfxHook = (fn) => { sfxHook = fn; };
 
+let halo = null;
+let haloFill = null;
+let haloColor = '';
+function updateHalo(now) {
+  if (!halo) return;
+  const p = pawns[turnTeam];
+  const T = state?.teams?.[turnTeam];
+  const show = !!p && !!T && !T.bankrupt && p.visible && state.winner === undefined;
+  halo.visible = show;
+  haloFill.visible = show;
+  if (!show) return;
+  if (haloColor !== T.color) {
+    haloColor = T.color;
+    halo.material.color.set(T.color);
+    haloFill.material.color.set(T.color);
+  }
+  halo.position.set(p.position.x, 0.012, p.position.z);
+  haloFill.position.set(p.position.x, 0.011, p.position.z);
+  const pulse = 1 + Math.sin(now / 260) * 0.08;
+  halo.scale.set(pulse, pulse, 1);
+  halo.material.opacity = 0.55 + Math.sin(now / 260) * 0.2;
+}
+
 export function setTurn(k) { turnTeam = k; }
+
+// la càmera s'acosta un moment a la fitxa d'un equip
+export function focusPawn(k) {
+  const p = pawns[k];
+  if (!p) return;
+  camFocus.x = p.position.x;
+  camFocus.z = p.position.z;
+  camFocus.k = 0.8;
+}
 export const debugCanvas = () => boardCanvas;
 // per a proves amb la pestanya en segon pla (sense requestAnimationFrame)
 export function renderOnce() { placeCamera(baseDist, camCur.x, camCur.z, camCur.k); renderer.render(scene, camera); }

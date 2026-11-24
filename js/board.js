@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795555692';
-import * as S3 from './scene.js?v=1795555692';
-import { sfx } from './sound.js?v=1795555692';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795555692';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795556165';
+import * as S3 from './scene.js?v=1795556165';
+import { sfx } from './sound.js?v=1795556165';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795556165';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -359,6 +359,16 @@ export async function playFx() {
           confetti(team(e.team).color);
           sfx.good();
           break;
+        case 'turn':
+          // canvi de torn: la càmera va a la seva fitxa, apareix el halo i passa la franja
+          S3.setTurn(e.team);
+          renderTop(isMutedFlag());
+          renderTeams();
+          S3.focusPawn(e.team);
+          sfx.turn?.();
+          await turnBand(team(e.team));
+          S3.focus(false);
+          break;
         default:
           break;
       }
@@ -370,6 +380,27 @@ export async function playFx() {
 }
 
 export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
+
+// franja que creua la pantalla: «Li toca a …»
+let mutedRef = () => false;
+export const setMutedRef = (fn) => { mutedRef = fn; };
+const isMutedFlag = () => mutedRef();
+async function turnBand(T) {
+  if (reduced()) return;
+  const el = document.createElement('div');
+  el.className = 'turnband';
+  el.style.setProperty('--tc', T.color);
+  el.innerHTML = `<div class="tb-in"><span class="tb-av" style="${avatarStyle(T)}">${avatarText(T)}</span><span class="tb-txt"><small>Li toca a</small><b>${esc(T.name)}</b></span></div>`;
+  $('#fx').appendChild(el);
+  const a = el.animate([
+    { transform: 'translateX(-110%) skewX(-12deg)', opacity: 0 },
+    { transform: 'translateX(0) skewX(-12deg)', opacity: 1, offset: 0.22 },
+    { transform: 'translateX(3%) skewX(-12deg)', opacity: 1, offset: 0.78 },
+    { transform: 'translateX(115%) skewX(-12deg)', opacity: 0 },
+  ], { duration: 1500, easing: 'cubic-bezier(.3,.8,.3,1)' });
+  await Promise.race([a.finished.catch(() => {}), wait(1700)]);
+  el.remove();
+}
 
 // ---------- Avisos ----------
 let toastTimer;

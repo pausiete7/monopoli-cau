@@ -69,4 +69,6 @@ export const sfx = {
   bad() { if (!muted) [392, 330, 262].forEach((f, k) => tone(f, k * 0.12, 0.25, { type: 'sawtooth', gain: 0.05 })); },
   build() { if (!muted) { noise(0, 0.05, 0.12); tone(220, 0, 0.08, { type: 'square', gain: 0.08 }); noise(0.12, 0.05, 0.12); tone(260, 0.12, 0.08, { type: 'square', gain: 0.08 }); } },
   click() { if (!muted) tone(900, 0, 0.03, { type: 'triangle', gain: 0.05 }); },
+  // campaneta de canvi de torn
+  turn() { if (!muted) { tone(784, 0, 0.35, { type: 'sine', gain: 0.12 }); tone(1175, 0.12, 0.45, { type: 'sine', gain: 0.1 }); noise(0, 0.05, 0.03); } },
 };
