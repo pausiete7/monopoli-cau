@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795550484';
+import * as G from './engine.js?v=1795553041';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx,
-} from './board.js?v=1795550484';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795550484';
-import * as S3 from './scene.js?v=1795550484';
-import { sfx, toggleMute, isMuted } from './sound.js?v=1795550484';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795550484';
+} from './board.js?v=1795553041';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795553041';
+import * as S3 from './scene.js?v=1795553041';
+import { sfx, toggleMute, isMuted } from './sound.js?v=1795553041';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795553041';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -123,7 +123,7 @@ function buyModal(q) {
       <button class="btn" type="button" data-a="auction">${icon('gavel')}Subhastar</button>
       <button class="btn btn-primary" type="button" data-a="buy" ${enough ? '' : 'disabled'}>Comprar per ${G.money(s.price)}</button>`,
     onMount(d) {
-      d.querySelector('[data-a=buy]').addEventListener('click', () => { G.buy(q.sq, q.team); after(); });
+      d.querySelector('[data-a=buy]').addEventListener('click', () => { const err = G.buy(q.sq, q.team); if (err) toast(err); after(); });
       d.querySelector('[data-a=auction]').addEventListener('click', () => { G.startAuction(q.sq); dlg.close(); after(); });
       d.querySelector('[data-a=skip]').addEventListener('click', () => { G.dismissQueueItem(); after(); });
       d.querySelector('[data-a=buy]:not(:disabled)')?.focus();
@@ -150,7 +150,10 @@ function auctionModal(q) {
       <span class="auc-av" style="${avatarStyle(t)}">${avatarText(t)}</span>
       <div class="auc-who"><b>${esc(t.name)}</b><span>${note}</span></div>
       <div class="auc-bid">${bids[k] ? G.money(bids[k]) : ''}</div>
-      <div class="auc-btns">${out ? '' : [10, 50, 100].map((inc) => `<button class="btn" type="button" data-bid="${k}" data-inc="${inc}">+${inc}</button>`).join('')}</div>
+      <div class="auc-btns">${out ? '' : [10, 50, 100].map((inc) => {
+    const next = (tb === null ? 0 : bids[tb]) + inc;
+    return `<button class="btn" type="button" data-bid="${k}" data-inc="${inc}" ${next > t.money ? 'disabled title="No té prou diners"' : ''}>+${inc}</button>`;
+  }).join('')}</div>
     </div>`;
   }).join('');
   openModal({
@@ -188,7 +191,7 @@ function auctionModal(q) {
         sfx.click();
         refresh();
       });
-      winBtn.addEventListener('click', () => { const tb = top(); G.auctionWin(i, tb, bids[tb]); after(); });
+      winBtn.addEventListener('click', () => { const tb = top(); const err = G.auctionWin(i, tb, bids[tb]); if (err) { toast(err); return; } after(); });
       d.querySelector('[data-a=none]').addEventListener('click', () => { G.dismissQueueItem(); after(); });
     },
   });
@@ -207,7 +210,8 @@ function auctionPicker() {
     body: `<div class="plist">${items.map(row).join('')}</div>`,
     onMount(d) {
       d.querySelectorAll('[data-auc]').forEach((b) => b.addEventListener('click', () => {
-        G.startAuction(Number(b.dataset.auc));
+        const err = G.startAuction(Number(b.dataset.auc));
+        if (err) { toast(err); return; }
         dlg.close();
         after();
       }));
@@ -279,7 +283,7 @@ function minigameModal() {
   const vals = [-3, -2, -1, 0, 1, 2, 3];
   const GN = deckName(G.rules(), 'good');
   const BN = deckName(G.rules(), 'bad');
-  const hint = (n) => (n === 0 ? 'Cap carta' : `${Math.abs(n)} carta${Math.abs(n) > 1 ? 'es' : ''} de ${n > 0 ? GN : BN}`);
+  const hint = (n) => (n === 0 ? 'Cap carta' : `${Math.abs(n)} ${Math.abs(n) > 1 ? 'cartes' : 'carta'} de ${n > 0 ? GN : BN}`);
   const rows = S().teams.map((t, k) => (t.bankrupt ? '' : `<div class="mg-row" data-row="${k}">
       <div class="mg-team" style="--tc:${t.color}"><span class="sw" style="${avatarStyle(t)}"></span>${esc(t.name)}</div>
       <div class="seg" role="group" aria-label="Cartes per a ${esc(t.name)}">${vals.map((v) => `<button type="button" data-v="${v}" class="${v < 0 ? 'neg' : v > 0 ? 'pos' : 'zero'}" aria-pressed="${v === 0}">${v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '0'}</button>`).join('')}</div>
@@ -368,9 +372,8 @@ function moneyModal(preTeam = G.state.turn) {
         if (!a || a < 0) { toast('Escriviu una quantitat.'); d.querySelector('#amt').focus(); return; }
         if (mode === 'pay' && (to === null || to === t)) { toast('Trieu a quin equip paga.'); return; }
         const c = d.querySelector('#conceptTxt').value.trim() || concept;
-        if (mode === 'take') G.adjust(t, -a, c);
-        else if (mode === 'give') G.adjust(t, a, c);
-        else G.adjust(t, a, c, to);
+        const err = mode === 'take' ? G.adjust(t, -a, c) : mode === 'give' ? G.adjust(t, a, c) : G.adjust(t, a, c, to);
+        if (err) { toast(err); return; }
         after();
       });
       setTimeout(() => d.querySelector('#amt').focus(), 50);
@@ -414,7 +417,8 @@ function tradeModal() {
         const aMoney = Math.max(0, Math.round(Number(d.querySelector('[data-money=a]').value) || 0));
         const bMoney = Math.max(0, Math.round(Number(d.querySelector('[data-money=b]').value) || 0));
         if (!aProps.length && !bProps.length && !aMoney && !bMoney) { toast('Marqueu què es canvia.'); return; }
-        G.trade({ a, b, aProps, bProps, aMoney, bMoney });
+        const err = G.trade({ a, b, aProps, bProps, aMoney, bMoney });
+        if (err) { toast(err); return; }
         after();
       });
     },
@@ -534,8 +538,8 @@ function squareModal(i) {
     foot: `<button class="btn" type="button" data-a="auction" ${S().owners[i]?.houses ? 'disabled' : ''}>${icon('gavel')}Subhastar</button>`,
     onMount(d) {
       bindPropActions(d, () => squareModal(i));
-      bindPick(d, 'own', (v) => { G.setOwner(i, v); dlg.dataset.keep = '1'; after().then(() => squareModal(i)); });
-      d.querySelector('[data-a=auction]').addEventListener('click', () => { G.startAuction(i); dlg.close(); after(); });
+      bindPick(d, 'own', (v) => { const err = G.setOwner(i, v); if (err) { toast(err); return; } dlg.dataset.keep = '1'; after().then(() => squareModal(i)); });
+      d.querySelector('[data-a=auction]').addEventListener('click', () => { const err = G.startAuction(i); if (err) { toast(err); return; } dlg.close(); after(); });
     },
   });
 }
@@ -864,12 +868,42 @@ const ACTIONS = {
   fullscreen,
   mute: () => { toggleMute(); full(); },
   endturn: () => { const err = G.endTurn(); if (err) { toast(err); teamModal(G.state.turn); return; } after(); },
-  payjail: () => { G.payJail(); after(); },
+  payjail: () => { const err = G.payJail(); if (err) { toast(err); return; } after(); },
   jailcard: () => { G.useJailCard(); after(); },
   resume: openQueue,
   setup: setupModal,
   restart: restartModal,
+  finish: finishModal,
 };
+
+// Final per temps: classificació per patrimoni (efectiu + valor de les propietats + cases)
+function finishModal() {
+  const rows = S().teams.map((t, k) => {
+    const props = G.propsOf(k);
+    const land = props.reduce((s, i) => s + (S().owners[i].mortgaged ? G.sq(i).price / 2 : G.sq(i).price), 0);
+    const build = props.reduce((s, i) => s + (S().owners[i].houses || 0) * (G.sq(i).house || 0), 0);
+    return { k, t, cash: t.money, land, build, total: t.money + land + build };
+  }).sort((a, b) => (a.t.bankrupt - b.t.bankrupt) || (b.total - a.total));
+  const podium = [rows[1], rows[0], rows[2]].map((r, j) => (r ? `<div class="pod pod-${[2, 1, 3][j]}" style="--tc:${r.t.color}">
+      <span class="pod-av" style="${avatarStyle(r.t)}">${avatarText(r.t)}</span>
+      <b>${esc(r.t.name)}</b><span>${G.money(r.total)}</span>
+      <div class="pod-step">${[2, 1, 3][j]}</div></div>` : '<div></div>')).join('');
+  openModal({
+    title: 'Classificació',
+    wide: true,
+    body: `<div class="podium">${podium}</div>
+      <table class="rank"><thead><tr><th></th><th>Equip</th><th>Efectiu</th><th>Propietats</th><th>Cases</th><th>Total</th></tr></thead><tbody>
+      ${rows.map((r, j) => `<tr class="${r.t.bankrupt ? 'out' : ''}"><td>${r.t.bankrupt ? '—' : j + 1}</td><td><span class="rank-sw" style="--tc:${r.t.color}"></span>${esc(r.t.name)}${r.t.bankrupt ? ' (fallida)' : ''}</td><td>${G.money(r.cash)}</td><td>${G.money(r.land)}</td><td>${G.money(r.build)}</td><td><b>${G.money(r.total)}</b></td></tr>`).join('')}
+      </tbody></table>
+      <p class="muted">Les propietats hipotecades compten la meitat. Les cases compten el que van costar.</p>`,
+    foot: `<button class="btn btn-ghost" type="button" data-close-btn>Seguir jugant</button><span class="spacer"></span>
+      <button class="btn btn-primary btn-big" type="button" data-a="go">${icon('trophy')}Acabar i proclamar ${esc(rows[0].t.name)}</button>`,
+    onMount(d) {
+      d.querySelector('[data-close-btn]').addEventListener('click', () => dlg.close());
+      d.querySelector('[data-a=go]').addEventListener('click', () => { G.finishGame(rows[0].k); after(); });
+    },
+  });
+}
 
 function restartModal() {
   openModal({

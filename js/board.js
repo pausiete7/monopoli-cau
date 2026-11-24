@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795550484';
-import * as S3 from './scene.js?v=1795550484';
-import { sfx } from './sound.js?v=1795550484';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795550484';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795553041';
+import * as S3 from './scene.js?v=1795553041';
+import { sfx } from './sound.js?v=1795553041';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795553041';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -62,6 +62,7 @@ export function renderTop(muted) {
       <button class="icon-btn" type="button" data-act="log" title="Historial" aria-label="Historial">${icon('list')}</button>
       <button class="icon-btn" type="button" data-act="mute" title="${muted ? 'Activar el so' : 'Silenciar'}" aria-label="${muted ? 'Activar el so' : 'Silenciar'}">${icon(muted ? 'mute' : 'volume')}</button>
       <button class="icon-btn" type="button" data-act="fullscreen" title="Pantalla completa" aria-label="Pantalla completa">${icon('expand')}</button>
+      <button class="icon-btn icon-btn-text" type="button" data-act="finish" title="Acabar la partida i veure qui guanya">${icon('trophy')}<span>Acabar</span></button>
       <button class="icon-btn icon-btn-text" type="button" data-act="restart" title="Reiniciar la partida">${icon('restart')}<span>Reiniciar</span></button>
       <button class="icon-btn" type="button" data-act="settings" title="Configuració" aria-label="Configuració">${icon('sliders')}</button>
     </div>`;
@@ -78,7 +79,12 @@ export function renderDock() {
   const r = rules();
   const pending = state.queue.length > 0;
   let main = '';
-  if (!state.started) {
+  if (state.winner !== undefined && team(state.winner)) {
+    const W = team(state.winner);
+    main = `<div class="dock-msg">Partida acabada</div>
+      <div class="winner" style="--tc:${W.color}"><span class="tc-av" style="${avatarStyle(W)}">${avatarText(W)}</span><b>Guanya ${esc(W.name)}!</b></div>
+      <button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="restart">Nova partida</button>`;
+  } else if (!state.started) {
     main = `<div class="dock-msg">La partida encara no ha començat</div><button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="setup">Preparar la partida</button>`;
   } else if (pending) {
     main = `<div class="dock-msg">Hi ha una acció pendent</div><button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="resume">Continuar</button>`;
@@ -89,7 +95,7 @@ export function renderDock() {
     const how = r.jailRoll ? `Surt si treu un ${r.jailExitRoll}.` : 'Ha de tirar igualment.';
     const jail = T.jail
       ? `<div class="jail-opts"><span>A la presó, torn ${T.jailTurns + 1} de ${max}. ${how}</span>
-          ${r.jailPay ? `<button class="gbtn gbtn-sm" type="button" data-act="payjail">${icon('coins')}Pagar ${money(r.jailFine)}</button>` : ''}
+          ${r.jailPay ? `<button class="gbtn gbtn-sm" type="button" data-act="payjail" ${T.money < r.jailFine ? 'disabled title="No té prou diners"' : ''}>${icon('coins')}Pagar ${money(r.jailFine)}</button>` : ''}
           ${T.jailCards ? `<button class="gbtn gbtn-sm gbtn-good" type="button" data-act="jailcard">${icon('key')}Fer servir la carta</button>` : ''}</div>`
       : '';
     main = `<div class="dock-msg">Quin número ha sortit?</div><div class="dice">${dice}</div>${jail}`;

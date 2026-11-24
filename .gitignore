@@ -1,2 +1,3 @@
 .claude/
 *.json.bak
+sim/.cli-state.json

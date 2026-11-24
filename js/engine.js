@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795550484';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795553041';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -26,7 +26,11 @@ function read(key) {
   try { return localStorage.getItem(key); } catch { return null; }
 }
 
+// per a simulacions: sense desar al navegador
+export const opts = { persist: true };
+
 export function save() {
+  if (!opts.persist) return;
   store(KEY, JSON.stringify(state));
   store(UNDO_KEY, JSON.stringify(undoStack));
 }
@@ -113,6 +117,7 @@ export const propsOf = (t) => Object.keys(state.owners).map(Number).filter((i) =
 export const activeTeams = () => state.teams.map((t, i) => i).filter((i) => !state.teams[i].bankrupt);
 export const jailIndex = () => state.config.board.findIndex((s) => s.type === 'jail');
 export const canUndo = () => undoStack.length > 0;
+export const undoDepth = () => undoStack.length;
 
 export function rentFor(i) {
   const o = state.owners[i];
@@ -270,7 +275,7 @@ function draw(deck) {
 
 // ---------- Accions del torn ----------
 export function roll(n) {
-  if (state.phase !== 'roll' || state.queue.length || !state.started) return;
+  if (state.phase !== 'roll' || state.queue.length || !state.started || state.winner !== undefined) return;
   checkpoint();
   const t = state.turn;
   const T = team(t);
@@ -286,9 +291,9 @@ export function roll(n) {
       if (T.jailTurns >= max) {
         if (R.jailPay) {
           transfer(t, 'bank', R.jailFine, 'presó');
-          log(`${T.name} ha passat ${max} torns a la presó: paga ${money(R.jailFine)} i surt.`, 'bad');
+          log(`${T.name} ha passat ${max} ${max === 1 ? 'torn' : 'torns'} a la presó: paga ${money(R.jailFine)} i surt.`, 'bad');
         } else {
-          log(`${T.name} ja ha complert ${max} torns a la presó i surt.`, 'info');
+          log(`${T.name} ja ha complert ${max} ${max === 1 ? 'torn' : 'torns'} a la presó i surt.`, 'info');
         }
         T.jail = false; T.jailTurns = 0;
       } else {
@@ -310,7 +315,8 @@ export function roll(n) {
 export function payJail() {
   const t = state.turn;
   const T = team(t);
-  if (!T.jail || state.phase !== 'roll' || !rules().jailPay) return;
+  if (!T.jail || state.phase !== 'roll' || !rules().jailPay) return 'Ara no es pot pagar per sortir de la presó.';
+  if (T.money < rules().jailFine) return `${T.name} no té prou diners per pagar la sortida (${money(rules().jailFine)}).`;
   checkpoint();
   transfer(t, 'bank', rules().jailFine, 'presó');
   T.jail = false; T.jailTurns = 0;
@@ -329,8 +335,9 @@ export function useJailCard() {
 }
 
 export function endTurn() {
-  if (state.queue.length) return null;
+  if (state.queue.length) return 'Primer cal resoldre l\'acció pendent.';
   const cur = current();
+  if (state.phase === 'roll' && !cur.bankrupt && state.winner === undefined) return 'Primer cal tirar el dau.';
   if (cur.money < 0 && !cur.bankrupt) {
     return `${cur.name} està en negatiu: abans de passar torn ha de vendre cases o hipotecar fins a tenir diners.`;
   }
@@ -369,6 +376,14 @@ function advanceTurn() {
 
 // ---------- Compres i subhastes ----------
 export function buy(i, t, price = sq(i).price) {
+  if (ownerOf(i) !== null) {
+    // l'oferta ja no val: la casella té amo (p. ex. s'ha canviat a mà)
+    state.queue = state.queue.filter((q) => !(q.type === 'buy' && q.sq === i));
+    save();
+    return `${sq(i).name} ja és de ${name(ownerOf(i))}.`;
+  }
+  if (out(t)) return 'Aquest equip és fora de la partida.';
+  if (team(t).money < price) return `${name(t)} no té prou diners per comprar-la.`;
   checkpoint();
   state.queue = state.queue.filter((q) => !(q.type === 'buy' && q.sq === i));
   state.owners[i] = { team: t, houses: 0, mortgaged: false };
@@ -382,7 +397,12 @@ export function buy(i, t, price = sq(i).price) {
   save();
 }
 
+const groupHasHouses = (i) => !!sq(i).group && groupSquares(sq(i).group).some((j) => state.owners[j]?.houses);
+const out = (t) => t === null || t === undefined || !team(t) || team(t).bankrupt;
+
 export function startAuction(i) {
+  if (!isBuyable(i)) return 'Aquesta casella no es pot subhastar.';
+  if (ownerOf(i) !== null && groupHasHouses(i)) return 'Primer cal vendre les cases del grup.';
   checkpoint();
   state.queue = state.queue.filter((q) => !(q.type === 'buy' && q.sq === i));
   state.queue.unshift({ type: 'auction', sq: i });
@@ -391,6 +411,10 @@ export function startAuction(i) {
 
 export function auctionWin(i, t, price) {
   // la subhasta ve d'una casella sense amo o d'una propietat d'un equip
+  if (out(t) || ownerOf(i) === t) return 'Aquest equip no pot guanyar la subhasta.';
+  if (ownerOf(i) !== null && groupHasHouses(i)) return 'Primer cal vendre les cases del grup.';
+  if (!(price > 0)) return 'Cal una oferta de com a mínim 1.';
+  if (price > team(t).money) return `${name(t)} no té prou diners per pagar aquesta oferta.`;
   checkpoint();
   state.queue = state.queue.filter((q) => !(q.type === 'auction' && q.sq === i));
   const prev = ownerOf(i);
@@ -422,6 +446,7 @@ export function cardOf(q) {
 }
 
 export function drawCard(t, deck) {
+  if (out(t)) return;
   checkpoint();
   state.queue.push({ type: 'card', deck, card: draw(deck), team: t, from: 'manual' });
   save();
@@ -434,6 +459,7 @@ export function applyCard() {
   state.queue.shift();
   const c = cardOf(q);
   const t = q.team;
+  if (!c || out(t)) { save(); return; } // carta esborrada o equip fora
   const T = team(t);
   const v = Number(c.value) || 0;
   log(`${T.name}: «${c.text}»`, q.deck === 'good' ? 'good' : 'bad');
@@ -447,10 +473,12 @@ export function applyCard() {
       });
       break;
     case 'goto':
+      if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }
       moveTo(t, ((v % N()) + N()) % N(), true);
       land(t, true);
       break;
     case 'move':
+      if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }
       if (v >= 0) moveSteps(t, v);
       else { T.pos = (T.pos + v + N() * 10) % N(); push({ type: 'move', team: t, path: backPath(t, v) }); }
       land(t, true);
@@ -468,8 +496,10 @@ export function applyCard() {
         const h = state.owners[i].houses;
         total += h === 5 ? v * 3 : h * v;
       });
-      if (total) transfer(t, 'bank', total, 'reparacions');
-      log(`${T.name} paga ${money(total)} de reparacions.`, 'bad');
+      if (total) {
+        transfer(t, 'bank', total, 'reparacions');
+        log(`${T.name} paga ${money(total)} de reparacions.`, 'bad');
+      } else log(`${T.name} no té cases: no paga reparacions.`, 'info');
       break;
     }
     case 'skip':
@@ -507,9 +537,10 @@ export function minigame(dist, gameName) {
     for (let j = 0; j < Math.abs(n); j++) {
       state.queue.push({ type: 'card', deck, card: draw(deck), team: t, from: 'minijoc', idx: j + 1, of: Math.abs(n) });
     }
-    parts.push(`${name(t)} ${n > 0 ? '+' : '−'}${Math.abs(n)}`);
+    const dn = n > 0 ? rules().goodName : rules().badName;
+    parts.push(`${name(t)} ${Math.abs(n)} ${Math.abs(n) > 1 ? 'cartes' : 'carta'} de ${dn}`);
   });
-  log(`Minijoc${gameName ? ` (${gameName})` : ''}: ${parts.join(', ') || 'sense cartes'}.`, 'info');
+  log(`Minijoc${gameName ? ` «${gameName}»` : ''}: ${parts.join('; ') || 'ningú agafa cartes'}.`, 'info');
   save();
 }
 
@@ -523,9 +554,10 @@ export function manageError(i) {
 }
 
 export function canBuild(i) {
-  const lock = manageError(i);
-  if (lock) return lock;
   const o = state.owners[i];
+  if (!o) return 'No té amo.';
+  // construir només en el torn propi (l'excepció dels números vermells és per vendre i hipotecar)
+  if (o.team !== state.turn) return `Només ho pot fer ${team(o.team).name} quan li toqui`;
   const s = sq(i);
   if (!o || s.type !== 'prop') return 'Només es pot construir en carrers.';
   if (!ownsGroup(o.team, s.group)) return 'Cal tenir tot el grup de color.';
@@ -578,7 +610,7 @@ export function toggleMortgage(i) {
     transfer('bank', o.team, s.price / 2, 'hipoteca');
     log(`${name(o.team)} hipoteca ${s.name} i rep ${money(s.price / 2)}.`, 'info');
   } else {
-    const cost = Math.ceil((s.price / 2) * 1.1);
+    const cost = Math.ceil((s.price * 11) / 20); // meitat del preu + 10 %, sense errors de decimals
     if (team(o.team).money < cost) return `Calen ${money(cost)} per aixecar la hipoteca.`;
     checkpoint();
     o.mortgaged = false;
@@ -591,10 +623,12 @@ export function toggleMortgage(i) {
 
 // ---------- Ajustos manuals ----------
 export function adjust(t, amount, concept, toTeam = null) {
-  if (!amount) return;
+  if (!amount) return null;
+  if (out(t) || (toTeam !== null && out(toTeam))) return 'Aquest equip és fora de la partida.';
   checkpoint();
   const what = concept ? ` (${concept})` : '';
   if (toTeam !== null && toTeam !== t) {
+    amount = Math.abs(amount);
     transfer(t, toTeam, amount, concept);
     log(`${name(t)} paga ${money(amount)} a ${name(toTeam)}${what}.`, 'info');
   } else if (amount < 0) {
@@ -608,20 +642,45 @@ export function adjust(t, amount, concept, toTeam = null) {
 }
 
 export function setOwner(i, t) {
+  if (!isBuyable(i)) return 'Aquesta casella no té amo.';
+  if (t !== null && out(t)) return 'Aquest equip és fora de la partida.';
+  if (t !== null && ownerOf(i) === t) return null;
   checkpoint();
+  // les cases del grup es venen al banc (meitat de preu) abans de canviar l'amo
+  if (groupHasHouses(i)) {
+    groupSquares(sq(i).group).forEach((j) => {
+      const o = state.owners[j];
+      if (o?.houses) {
+        const back = Math.floor(sq(j).house / 2) * o.houses;
+        transfer('bank', o.team, back, 'venda');
+        log(`Es venen les cases de ${sq(j).name}: ${name(o.team)} rep ${money(back)}.`, 'info');
+        o.houses = 0;
+      }
+    });
+  }
+  // una oferta de compra pendent d'aquesta casella ja no val
+  state.queue = state.queue.filter((q) => !(q.type === 'buy' && q.sq === i));
   if (t === null) {
     delete state.owners[i];
     log(`${sq(i).name} torna al banc.`, 'info');
   } else {
     const prev = state.owners[i];
-    state.owners[i] = { team: t, houses: prev ? prev.houses : 0, mortgaged: prev ? prev.mortgaged : false };
+    state.owners[i] = { team: t, houses: 0, mortgaged: prev ? prev.mortgaged : false };
     push({ type: 'buy', team: t, square: i });
     log(`${sq(i).name} passa a ser de ${name(t)}.`, 'info');
   }
   save();
+  return null;
 }
 
 export function trade({ a, b, aProps, bProps, aMoney, bMoney }) {
+  if (a === b) return 'Cal triar dos equips diferents.';
+  if (out(a) || out(b)) return 'Un dels equips és fora de la partida.';
+  if ((aMoney || 0) < 0 || (bMoney || 0) < 0) return 'Els diners de l\'intercanvi han de ser positius.';
+  if ((aMoney || 0) > Math.max(0, team(a).money)) return `${name(a)} no té tants diners.`;
+  if ((bMoney || 0) > Math.max(0, team(b).money)) return `${name(b)} no té tants diners.`;
+  if (aProps.some((i) => ownerOf(i) !== a) || bProps.some((i) => ownerOf(i) !== b)) return 'Alguna propietat ja no és de qui la dona.';
+  if ([...aProps, ...bProps].some(groupHasHouses)) return 'Les propietats amb cases al grup no es poden canviar.';
   checkpoint();
   aProps.forEach((i) => { state.owners[i].team = b; push({ type: 'buy', team: b, square: i }); });
   bProps.forEach((i) => { state.owners[i].team = a; push({ type: 'buy', team: a, square: i }); });
@@ -635,9 +694,11 @@ export function trade({ a, b, aProps, bProps, aMoney, bMoney }) {
   });
   push({ type: 'banner', text: 'Tracte fet!', tone: 'good', team: a, sub: `${name(a)} i ${name(b)}` });
   save();
+  return null;
 }
 
 export function placeTeam(t, i, doLand) {
+  if (out(t)) return;
   checkpoint();
   team(t).pos = i;
   team(t).jail = false;
@@ -648,6 +709,7 @@ export function placeTeam(t, i, doLand) {
 }
 
 export function toggleJail(t) {
+  if (out(t)) return;
   checkpoint();
   const T = team(t);
   if (T.jail) { T.jail = false; T.jailTurns = 0; log(`${T.name} surt de la presó.`, 'info'); }
@@ -675,7 +737,9 @@ function goBankrupt(t) {
   T.jail = false;
   log(`${T.name} fa fallida i queda fora de la partida. Les seves propietats tornen al banc.`, 'bad');
   push({ type: 'banner', text: 'Fallida!', tone: 'bad', team: t, sub: `${T.name} queda fora` });
+  const dropped = state.queue.filter((q) => q.team === t).length;
   state.queue = state.queue.filter((q) => q.team !== t);
+  if (dropped) log(`S'anul·len ${dropped === 1 ? 'una acció pendent' : `${dropped} accions pendents`} de ${T.name}.`, 'info');
   if (state.turn === t) advanceTurn();
   const left = activeTeams();
   if (left.length === 1) {
@@ -685,6 +749,18 @@ function goBankrupt(t) {
     push({ type: 'banner', text: `Guanya ${w.name}!`, tone: 'good', team: left[0], sub: 'Tots els altres equips han fet fallida' });
     push({ type: 'confetti', team: left[0] });
   }
+}
+
+// Final per temps: es proclama guanyador l'equip amb més patrimoni
+export function finishGame(k) {
+  if (out(k)) return;
+  checkpoint();
+  state.winner = k;
+  state.queue = [];
+  log(`S'acaba la partida per temps. Guanya ${team(k).name}!`, 'good');
+  push({ type: 'banner', text: `Guanya ${team(k).name}!`, tone: 'good', team: k, sub: 'És l\'equip amb més patrimoni' });
+  push({ type: 'confetti', team: k });
+  save();
 }
 
 // pot aconseguir diners venent cases o hipotecant?
@@ -701,8 +777,10 @@ export function checkBankrupt() {
 }
 
 export function revive(t) {
+  if (!team(t).bankrupt) return;
   checkpoint();
   team(t).bankrupt = false;
+  delete state.winner;
   log(`${team(t).name} torna a la partida.`, 'info');
   save();
 }
@@ -711,6 +789,8 @@ export function revive(t) {
 export function updateConfig(mut) {
   checkpoint();
   mut(state);
+  // cartes pendents que ja no existeixen
+  state.queue = state.queue.filter((q) => q.type !== 'card' || state.config.cards[q.deck][q.card]);
   // si han canviat les cartes, rebarregem els malls
   ['good', 'bad'].forEach((d) => {
     const n = state.config.cards[d].length;

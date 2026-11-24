@@ -12,6 +12,9 @@ export const GROUPS = {
   blau:    { name: 'Blau',    color: '#1D4ED8' },
 };
 
+// Economia: preus i cost de les cases del Monopoly clàssic. Els lloguers són els clàssics ×1,5
+// (sense cases i amb 1-2 cases) i una mica menys amb 3-4 cases i hotel. Amb ×2 el primer equip queia\n// cap a la ronda 9 i es passava mitja sessió mirant, perquè amb un sol dau i
+// 24 caselles la partida avanci prou per fer-la en 1 h 30 - 2 h (vegeu sim/economy.mjs).
 const P = (name, group, price, rent, house) => ({ type: 'prop', name, group, price, rent, house });
 const S = (name) => ({ type: 'station', name, price: 200 });
 
@@ -20,29 +23,29 @@ const S = (name) => ({ type: 'station', name, price: 200 });
 // La 0 és la Sortida (cantonada de baix a la dreta) i es va en sentit horari.
 export const BOARD = [
   { type: 'go', name: 'Sortida' },
-  P('Lavabos del cau', 'marro', 60, [2, 10, 30, 90, 160, 250], 50),
-  P('Magatzem de material', 'marro', 60, [4, 20, 60, 180, 320, 450], 50),
+  P('Lavabos del cau', 'marro', 60, [5, 15, 45, 120, 180, 280], 50),
+  P('Magatzem de material', 'marro', 60, [10, 30, 90, 235, 360, 505], 50),
   S('Estació FGC Rubí'),
-  P('Pati del cau', 'cel', 100, [6, 30, 90, 270, 400, 550], 50),
-  P('Local de Pioners', 'cel', 120, [8, 40, 100, 300, 450, 600], 50),
+  P('Pati del cau', 'cel', 100, [10, 45, 135, 355, 450, 620], 50),
+  P('Local de Pioners', 'cel', 120, [10, 60, 150, 395, 505, 675], 50),
   { type: 'jail', name: 'Presó' },
-  P('Racó del foc', 'rosa', 140, [10, 50, 150, 450, 625, 750], 100),
-  P('Cuina de campaments', 'rosa', 160, [12, 60, 180, 500, 700, 900], 100),
+  P('Racó del foc', 'rosa', 140, [15, 75, 225, 595, 705, 845], 100),
+  P('Cuina de campaments', 'rosa', 160, [20, 90, 270, 655, 790, 1015], 100),
   S('Estació Renfe Rubí'),
-  P('Riera de Rubí', 'taronja', 180, [14, 70, 200, 550, 750, 950], 100),
-  P("Parc de Ca n'Oriol", 'taronja', 200, [16, 80, 220, 600, 800, 1000], 100),
+  P('Riera de Rubí', 'taronja', 180, [25, 105, 300, 725, 845, 1070], 100),
+  P("Parc de Ca n'Oriol", 'taronja', 200, [25, 120, 330, 790, 900, 1125], 100),
   { type: 'tax', name: 'Multa', amount: 100 },
-  P('Castell de Rubí', 'vermell', 220, [18, 90, 250, 700, 875, 1050], 150),
-  P('Plaça del Doctor Guardiet', 'vermell', 240, [20, 100, 300, 750, 925, 1100], 150),
+  P('Castell de Rubí', 'vermell', 220, [25, 135, 375, 920, 985, 1180], 150),
+  P('Plaça del Doctor Guardiet', 'vermell', 240, [30, 150, 450, 985, 1045, 1240], 150),
   S('Cremallera de Núria'),
-  P('Montserrat', 'groc', 260, [22, 110, 330, 800, 975, 1150], 150),
-  P('Sant Llorenç del Munt', 'groc', 280, [24, 120, 360, 850, 1025, 1200], 150),
+  P('Montserrat', 'groc', 260, [35, 165, 495, 1050, 1100, 1295], 150),
+  P('Sant Llorenç del Munt', 'groc', 280, [40, 180, 540, 1120, 1155, 1350], 150),
   { type: 'gotojail', name: 'Ves a la presó' },
-  P("Campaments d'estiu", 'verd', 300, [26, 130, 390, 900, 1100, 1275], 200),
-  P('Ruta de Pioners', 'verd', 320, [28, 150, 450, 1000, 1200, 1400], 200),
+  P("Campaments d'estiu", 'verd', 300, [40, 195, 585, 1180, 1240, 1435], 200),
+  P('Ruta de Pioners', 'verd', 320, [40, 225, 675, 1315, 1350, 1575], 200),
   S('Estació de Sants'),
-  P('Vall de Núria', 'blau', 350, [35, 175, 500, 1100, 1300, 1500], 200),
-  P('Puigmal', 'blau', 400, [50, 200, 600, 1400, 1700, 2000], 200),
+  P('Vall de Núria', 'blau', 350, [55, 265, 750, 1445, 1465, 1690], 200),
+  P('Puigmal', 'blau', 400, [75, 300, 900, 1840, 1915, 2250], 200),
 ];
 
 // Efectes possibles d'una carta:
@@ -112,7 +115,7 @@ export const RULES = {
   jailRoll: true, // es pot sortir traient el número
   jailMaxTurns: 3, // torns màxims a la presó
   maxDie: 6,
-  stationRent: [25, 50, 100, 200],
+  stationRent: [30, 60, 120, 200],
   parkingPot: false,
   currency: '€',
   tilt: true,
