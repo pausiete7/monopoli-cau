@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611223';
-import { photoOf, initials } from './util.js?v=1795611223';
-import { deckName } from './data.js?v=1795611223';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611612';
+import { photoOf, initials } from './util.js?v=1795611612';
+import { deckName } from './data.js?v=1795611612';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -2484,46 +2484,153 @@ export function bouncePlaque(i) {
 }
 
 // cara d'una carta: capçalera del color del mall, el text i el resum de l'efecte
-function cardFaceTexture(deck, text, foot) {
+// ---------- Cara de les cartes (E7) ----------
+// Un sol dibuix per a la carta 3D i per a la finestra: capçalera del color del mall amb vora ondulada,
+// medalló amb un dibuix segons l'efecte, el text al mig, i a baix què fa (verd si cobra, vermell si paga).
+function cardIcon(ctx, effect, value, col) {
+  ctx.save();
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col;
+  ctx.lineWidth = 9;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const v = Number(value) || 0;
+  const coin = (x, y, r) => {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    setFont(ctx, 900, r * 1.15, 'normal');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('€', x, y + 2);
+  };
+  switch (effect) {
+    case 'money': coin(0, 0, 40); break;
+    case 'each':
+      [-38, 0, 38].forEach((x, k) => {
+        const y = k === 1 ? -6 : 6;
+        ctx.beginPath(); ctx.arc(x, y - 18, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y + 22, 20, Math.PI, 0); ctx.fill();
+      });
+      break;
+    case 'goto':
+      ctx.beginPath(); ctx.moveTo(-22, 44); ctx.lineTo(-22, -44); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-18, -42); ctx.lineTo(34, -26); ctx.lineTo(-18, -8); ctx.closePath(); ctx.fill();
+      break;
+    case 'move': {
+      const d = v >= 0 ? 1 : -1;
+      ctx.beginPath(); ctx.moveTo(-40 * d, 14); ctx.quadraticCurveTo(0, -40, 34 * d, 4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(40 * d, 12); ctx.lineTo(16 * d, 8); ctx.lineTo(34 * d, -14); ctx.closePath(); ctx.fill();
+      break;
+    }
+    case 'jail':
+      roundRect(ctx, -40, -40, 80, 80, 10); ctx.stroke();
+      [-14, 14].forEach((x) => { ctx.beginPath(); ctx.moveTo(x, -40); ctx.lineTo(x, 40); ctx.stroke(); });
+      break;
+    case 'jailfree':
+      ctx.beginPath(); ctx.arc(-20, 0, 20, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(44, 0); ctx.moveTo(30, 0); ctx.lineTo(30, 16); ctx.moveTo(42, 0); ctx.lineTo(42, 12); ctx.stroke();
+      break;
+    case 'repairs':
+      // martell: mànec en diagonal i cap travesser
+      ctx.beginPath(); ctx.moveTo(-26, 40); ctx.lineTo(12, -18); ctx.stroke();
+      ctx.save(); ctx.translate(14, -20); ctx.rotate(Math.atan2(-58, 38) + Math.PI / 2); roundRect(ctx, -34, -13, 68, 26, 6); ctx.fill(); ctx.restore();
+      break;
+    case 'skip':
+      setFont(ctx, 900, 54, 'normal');
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Z', -14, 10); setFont(ctx, 900, 36, 'normal'); ctx.fillText('z', 22, -18);
+      break;
+    case 'extra':
+      roundRect(ctx, -36, -36, 72, 72, 14); ctx.stroke();
+      [[-16, -16], [16, 16], [0, 0], [16, -16], [-16, 16]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); });
+      break;
+    default:
+      roundRect(ctx, -40, -32, 80, 54, 16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-14, 22); ctx.lineTo(-22, 40); ctx.lineTo(4, 22); ctx.stroke();
+  }
+  ctx.restore();
+}
+export function cardFaceCanvas(deck, card = {}) {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 720;
   const ctx = c.getContext('2d');
   const good = deck === 'good';
   const col = good ? '#23A55A' : '#3A3F96';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, 512, 720);
-  ctx.lineWidth = 14;
-  ctx.strokeStyle = col;
-  roundRect(ctx, 16, 16, 480, 688, 28);
-  ctx.stroke();
-  roundRect(ctx, 16, 16, 480, 120, 28);
-  ctx.fillStyle = col;
+  const deep = good ? '#16733D' : '#262A6E';
+  // paper
+  roundRect(ctx, 0, 0, 512, 720, 34);
+  ctx.fillStyle = '#FFFDF8';
   ctx.fill();
-  ctx.fillRect(16, 90, 480, 46);
-  setFont(ctx, 900, 58, 'normal');
+  ctx.save();
+  roundRect(ctx, 0, 0, 512, 720, 34);
+  ctx.clip();
+  // capçalera amb vora ondulada
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(512, 0); ctx.lineTo(512, 150);
+  for (let x = 512; x >= 0; x -= 32) ctx.quadraticCurveTo(x - 16, x % 64 ? 168 : 132, x - 32, 150);
+  ctx.closePath();
+  ctx.fill();
+  // trama fina a la capçalera
+  ctx.strokeStyle = 'rgba(255,255,255,.12)';
+  ctx.lineWidth = 6;
+  for (let x = -200; x < 600; x += 26) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 150, 150); ctx.stroke(); }
+  ctx.restore();
+  // marc: vora del color del mall i corda puntejada a dins
+  ctx.lineWidth = 12;
+  ctx.strokeStyle = col;
+  roundRect(ctx, 6, 6, 500, 708, 30);
+  ctx.stroke();
+  ctx.setLineDash([2, 14]);
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = good ? 'rgba(35,165,90,.45)' : 'rgba(58,63,150,.4)';
+  roundRect(ctx, 28, 186, 456, 506, 20);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // nom del mall
+  setFont(ctx, 900, 52, 'normal');
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(deckName(rules(), deck).toUpperCase(), 256, 80);
-  // text centrat a la zona del mig
-  let s = 54;
+  ctx.shadowColor = deep;
+  ctx.shadowOffsetY = 4;
+  ctx.fillText(deckName(rules(), deck).toUpperCase(), 256, 64);
+  ctx.shadowColor = 'transparent';
+  // medalló amb el dibuix de l'efecte
+  ctx.beginPath(); ctx.arc(256, 168, 66, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.lineWidth = 10; ctx.strokeStyle = col; ctx.stroke();
+  ctx.save(); ctx.translate(256, 168); ctx.scale(0.82, 0.82); cardIcon(ctx, card.effect, card.value, col); ctx.restore();
+  // text
+  let s = 50;
   let lines;
-  for (; s >= 26; s -= 2) {
+  for (; s >= 24; s -= 2) {
     setFont(ctx, 800, s, 'semi-condensed');
-    lines = wrap(ctx, text || '', 420);
-    if (lines.length * s * 1.18 <= 400) break;
+    lines = wrap(ctx, card.text || '', 410);
+    if (lines.length * s * 1.2 <= 330) break;
   }
   ctx.fillStyle = INK;
-  const top = 160 + (420 - lines.length * s * 1.18) / 2;
-  lines.forEach((l, k) => ctx.fillText(l, 256, top + s * 0.6 + k * s * 1.18));
-  if (foot) {
-    roundRect(ctx, 50, 610, 412, 64, 18);
-    ctx.fillStyle = '#EEF1FA';
+  const top = 262 + (330 - lines.length * s * 1.2) / 2;
+  lines.forEach((l, k) => ctx.fillText(l, 256, top + s * 0.6 + k * s * 1.2));
+  // què fa la carta, amb color segons si es cobra o es paga
+  if (card.foot) {
+    const v = Number(card.value) || 0;
+    const tone = ['money', 'each'].includes(card.effect) ? (v >= 0 ? 'good' : 'bad') : card.effect === 'jail' || card.effect === 'skip' || card.effect === 'repairs' ? 'bad' : card.effect === 'text' ? 'neutral' : 'good';
+    const bg = { good: '#E3F5EA', bad: '#FBE6E4', neutral: '#EEF1FA' }[tone];
+    const fg = { good: '#167A3F', bad: '#B22A20', neutral: INK }[tone];
+    setFont(ctx, 900, 32, 'normal');
+    const w = Math.min(430, ctx.measureText(card.foot).width + 60);
+    roundRect(ctx, 256 - w / 2, 612, w, 62, 31);
+    ctx.fillStyle = bg;
     ctx.fill();
-    setFont(ctx, 800, 30, 'normal');
-    ctx.fillStyle = INK;
-    ctx.fillText(foot, 256, 643);
+    ctx.fillStyle = fg;
+    let fs = 32;
+    while (ctx.measureText(card.foot).width > w - 30 && fs > 20) { fs -= 2; setFont(ctx, 900, fs, 'normal'); }
+    ctx.fillText(card.foot, 256, 644);
   }
+  return c;
+}
+export const cardFaceImage = (deck, card) => cardFaceCanvas(deck, card).toDataURL();
+function cardFaceTexture(deck, card) {
+  const c = cardFaceCanvas(deck, card);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
@@ -2538,7 +2645,7 @@ export async function drawCard(deck, card) {
   dropCard(true);
   const side = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
   const backM = new THREE.MeshStandardMaterial({ map: deckTexture(deck), roughness: 0.5 });
-  const faceM = new THREE.MeshStandardMaterial({ map: cardFaceTexture(deck, card?.text, card?.foot), roughness: 0.5 });
+  const faceM = new THREE.MeshStandardMaterial({ map: cardFaceTexture(deck, card || {}), roughness: 0.5 });
   // la cara va a la part de sota (−y): quan la carta es gira, queda a la vista
   faceM.map.center.set(0.5, 0.5);
   faceM.map.rotation = Math.PI;

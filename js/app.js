@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795611223';
+import * as G from './engine.js?v=1795611612';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795611223';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795611223';
-import * as S3 from './scene.js?v=1795611223';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795611223';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795611223';
+} from './board.js?v=1795611612';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795611612';
+import * as S3 from './scene.js?v=1795611612';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795611612';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795611612';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -46,7 +46,7 @@ async function openQueue() {
     document.body.classList.add('busy');
     sfx.flip();
     const c = G.cardOf(q);
-    try { await drawCardFx(q.deck, { text: c?.text, foot: c ? effectSummary(c) : '' }); await new Promise((r) => setTimeout(r, 250)); } finally { drawing = false; document.body.classList.remove('busy'); }
+    try { await drawCardFx(q.deck, { text: c?.text, foot: c ? effectSummary(c) : '', effect: c?.effect, value: c?.value }); await new Promise((r) => setTimeout(r, 250)); } finally { drawing = false; document.body.classList.remove('busy'); }
     if (S().queue[0] === q && !dlg.open) cardModal(q, S3.currentCardId());
     else S3.dropCard();
   }
@@ -258,10 +258,7 @@ function cardModal(q, cardId = null) {
     title: `${name} per a ${esc(T.name)}${count}`,
     body: `<p class="card-for" style="--tc:${T.color}"><b>${esc(T.name)}</b> agafa una carta de ${name}${count}</p>
       <div class="card-stage"><div class="gcard flip" style="--deck:${deckColor}">
-        <div class="gface gback"></div>
-        <div class="gface gfront"><div class="ghead">${name}</div>
-          <div class="gtext">${esc(c.text)}</div>
-          <div class="gfoot">${esc(effectSummary(c))}</div></div>
+        <img class="gimg" src="${S3.cardFaceImage(q.deck, { text: c.text, foot: effectSummary(c), effect: c.effect, value: c.value })}" alt="${esc(c.text)}. ${esc(effectSummary(c))}">
       </div></div>`,
     foot: `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
     onMount(d) {

@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795611223';
-import * as S3 from './scene.js?v=1795611223';
-import { sfx } from './sound.js?v=1795611223';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795611223';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795611612';
+import * as S3 from './scene.js?v=1795611612';
+import { sfx } from './sound.js?v=1795611612';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795611612';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);

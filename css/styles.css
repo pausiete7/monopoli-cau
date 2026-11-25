@@ -870,13 +870,14 @@ input[type=color] { width: 54px; height: 46px; padding: 2px; border: 2px solid v
 .split > .grow { flex: 1; min-width: 240px; }
 
 .card-stage { display: grid; place-items: center; padding: 10px 0 4px; perspective: 1200px; }
-.gcard { width: 360px; max-width: 80vw; aspect-ratio: 5 / 7; position: relative; transform-style: preserve-3d; }
+.gcard { width: min(360px, calc((100vh - 290px) * 5 / 7)); min-width: 220px; max-width: 80vw; aspect-ratio: 5 / 7; position: relative; transform-style: preserve-3d; }
 /* la carta ja s'ha girat al tauler: aquí només apareix, sense tornar-la a girar */
 .gcard.flip { animation: cardIn .45s var(--ease-spring) both; }
 @keyframes cardIn {
   from { transform: translateY(24px) scale(.9); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
+.gimg { display: block; width: 100%; height: 100%; border-radius: 24px; box-shadow: 0 10px 0 #C3C8E2, 0 20px 40px rgba(0, 0, 0, .2); }
 .gface { position: absolute; inset: 0; border-radius: 22px; backface-visibility: hidden; box-shadow: 0 10px 0 #C3C8E2, 0 20px 40px rgba(0, 0, 0, .2); }
 .gback { transform: rotateY(180deg); background: var(--deck); }
 .gback::before { content: ''; position: absolute; inset: 16px; border: 4px solid rgba(255, 255, 255, .7); border-radius: 14px; }
