@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795622936';
-import { photoOf, initials } from './util.js?v=1795622936';
-import { deckName } from './data.js?v=1795622936';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795623552';
+import { photoOf, initials } from './util.js?v=1795623552';
+import { deckName } from './data.js?v=1795623552';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -2700,7 +2700,7 @@ function cardIcon(ctx, effect, value, col) {
     ctx.fillText('€', x, y + 2);
   };
   switch (effect) {
-    case 'money': coin(0, 0, 40); break;
+    case 'money': case 'perprop': coin(0, 0, 40); break;
     case 'each':
       [-38, 0, 38].forEach((x, k) => {
         const y = k === 1 ? -6 : 6;
@@ -2708,7 +2708,7 @@ function cardIcon(ctx, effect, value, col) {
         ctx.beginPath(); ctx.arc(x, y + 22, 20, Math.PI, 0); ctx.fill();
       });
       break;
-    case 'goto':
+    case 'goto': case 'goback': case 'station':
       ctx.beginPath(); ctx.moveTo(-22, 44); ctx.lineTo(-22, -44); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-18, -42); ctx.lineTo(34, -26); ctx.lineTo(-18, -8); ctx.closePath(); ctx.fill();
       break;

@@ -23,11 +23,11 @@ const S = (name) => ({ type: 'station', name, price: 200 });
 // La 0 és la Sortida (cantonada de baix a la dreta) i es va en sentit horari.
 export const BOARD = [
   { type: 'go', name: 'Sortida' },
-  P('Lavabos del cau', 'marro', 60, [5, 15, 45, 120, 180, 280], 50),
-  P('Magatzem de material', 'marro', 60, [10, 30, 90, 235, 360, 505], 50),
-  S('Estació FGC Rubí'),
-  P('Pati del cau', 'cel', 100, [10, 45, 135, 355, 450, 620], 50),
-  P('Local de Pioners', 'cel', 120, [10, 60, 150, 395, 505, 675], 50),
+  P('Letrines de campaments', 'marro', 60, [5, 15, 45, 120, 180, 280], 50),
+  P('Bar Juan', 'marro', 60, [10, 30, 90, 235, 360, 505], 50),
+  S('Estació Rubí Centre'),
+  P('Canu', 'cel', 100, [10, 45, 135, 355, 450, 620], 50),
+  P('Sala de profes', 'cel', 120, [10, 60, 150, 395, 505, 675], 50),
   { type: 'jail', name: 'Presó' },
   P('Racó del foc', 'rosa', 140, [15, 75, 225, 595, 705, 845], 100),
   P('Cuina de campaments', 'rosa', 160, [20, 90, 270, 655, 790, 1015], 100),
@@ -35,11 +35,11 @@ export const BOARD = [
   P('Riera de Rubí', 'taronja', 180, [25, 105, 300, 725, 845, 1070], 100),
   P("Parc de Ca n'Oriol", 'taronja', 200, [25, 120, 330, 790, 900, 1125], 100),
   { type: 'parking', name: 'Pàrquing' },
-  P('Castell de Rubí', 'vermell', 220, [25, 135, 375, 920, 985, 1180], 150),
-  P('Plaça del Doctor Guardiet', 'vermell', 240, [30, 150, 450, 985, 1045, 1240], 150),
-  S('Cremallera de Núria'),
-  P('Montserrat', 'groc', 260, [35, 165, 495, 1050, 1100, 1295], 150),
-  P('Sant Llorenç del Munt', 'groc', 280, [40, 180, 540, 1120, 1155, 1350], 150),
+  P('Parada de la castanyada', 'vermell', 220, [25, 135, 375, 920, 985, 1180], 150),
+  P('La Carral', 'vermell', 240, [30, 150, 450, 985, 1045, 1240], 150),
+  S('Estació R1 Ocata'),
+  P('Prat de Camprodon', 'groc', 260, [35, 165, 495, 1050, 1100, 1295], 150),
+  P("Cim de la Pica d'Estats", 'groc', 280, [40, 180, 540, 1120, 1155, 1350], 150),
   { type: 'gotojail', name: 'Ves a la presó' },
   P("Campaments d'estiu", 'verd', 300, [40, 195, 585, 1180, 1240, 1435], 200),
   P('Ruta de Pioners', 'verd', 320, [40, 225, 675, 1315, 1350, 1575], 200),
@@ -58,6 +58,9 @@ export const BOARD = [
 //  repairs  (value: preu per casa; l'hotel paga value × 3)
 //  skip   (perd el pròxim torn)
 //  extra  (tirada extra)
+//  station (l'equip tria una estació i hi va; si és lliure, la pot comprar)
+//  perprop (value per cada propietat que té: + cobra / − paga)
+//  goback (value: número de casella; hi va sense cobrar la Sortida)
 //  text   (no fa res sola: ho apliqueu vosaltres)
 export const EFFECTS = {
   money: 'Diners (+ cobra, − paga)',
@@ -69,33 +72,37 @@ export const EFFECTS = {
   repairs: 'Reparacions (per casa)',
   skip: 'Perd el pròxim torn',
   extra: 'Tirada extra',
+  station: 'Anar a una estació (la tria l\'equip)',
+  perprop: 'Diners per cada propietat (+ cobra, − paga)',
+  goback: 'Tornar a una casella sense cobrar',
   text: 'Només text (ho apliqueu a mà)',
 };
 
+// Les 5 primeres de cada mall són d'en Nacho; les altres 5, d'en Pau.
 export const CARDS = {
   good: [
-    { text: 'Has muntat la tenda en tres minuts. Cobra 150.', effect: 'money', value: 150 },
-    { text: 'Has trobat el foulard que havies perdut. Cobra 100.', effect: 'money', value: 100 },
-    { text: 'Ets el primer de la cua del sopar. Avança fins a la Sortida.', effect: 'goto', value: 0 },
-    { text: 'La teva cançó de campaments ha triomfat: cada equip et paga 30.', effect: 'each', value: 30 },
-    { text: 'Quedes lliure de la presó! Guarda aquesta carta i fes-la servir quan et tanquin.', effect: 'jailfree', value: 0 },
-    { text: 'Tens el vent a favor. Avança 3 caselles.', effect: 'move', value: 3 },
-    { text: 'Tira un altre cop.', effect: 'extra', value: 0 },
-    { text: "Has venut totes les neules de l'extrajob. Cobra 200.", effect: 'money', value: 200 },
-    { text: 'El kraal t\'ha vist amb camisa i foulard. Cobra 120.', effect: 'money', value: 120 },
-    { text: 'Agafes el cremallera sense fer cua. Ves a la Cremallera de Núria.', effect: 'goto', value: 15 },
+    { text: "Has guanyat la TEP: la resta d'equips et paguen 50.", effect: 'each', value: 50 },
+    { text: "T'ha tocat la Rifa del cau de final de curs. Reps 100.", effect: 'money', value: 100 },
+    { text: 'Has sigut estil rànger: aquesta carta et serveix per sortir de la presó.', effect: 'jailfree', value: 0 },
+    { text: 'Existeix la T-lleure, així que pots anar a qualsevol estació i comprar-la.', effect: 'station', value: 0 },
+    { text: 'Pels teus anys al cau et volen fer un regal: cobreu 30 per cada propietat que tingueu.', effect: 'perprop', value: 30 },
+    { text: "Has trobat un bitllet a la butxaca del fular de l'any passat. Cobra 100.", effect: 'money', value: 100 },
+    { text: "El Juan del bar et convida a esmorzar i surts amb energia: tira un altre cop.", effect: 'extra', value: 0 },
+    { text: 'Has deixat les letrines netes com una patena: cada equip et paga 20.', effect: 'each', value: 20 },
+    { text: "Agafes el tren sense arribar tard: ves a l'Estació Rubí Centre.", effect: 'goto', value: 3 },
+    { text: 'Els profes et deixen la sala per fer la reunió: cobra 150.', effect: 'money', value: 150 },
   ],
   bad: [
-    { text: "T'has deixat el sac de dormir a casa. Paga 100.", effect: 'money', value: -100 },
-    { text: 'Has parlat en castellà davant del kraal. Paga 50.', effect: 'money', value: -50 },
-    { text: 'Ves directament a la presó.', effect: 'jail', value: 0 },
-    { text: 'Has trencat un fogonet. Paga 150.', effect: 'money', value: -150 },
-    { text: "T'has menjat les llaminadures dels altres: paga 25 a cada equip.", effect: 'each', value: -25 },
-    { text: 'Toca arreglar les cabanes: paga 40 per cada casa (i 120 per hotel).', effect: 'repairs', value: 40 },
-    { text: 'Has girat malament al camí. Retrocedeix 3 caselles.', effect: 'move', value: -3 },
-    { text: "T'has adormit. Perds el pròxim torn.", effect: 'skip', value: 0 },
-    { text: "T'has perdut a l'excursió per anar mirant el mòbil. Paga 80.", effect: 'money', value: -80 },
-    { text: 'Has arribat tard a la reunió. Paga 60.', effect: 'money', value: -60 },
+    { text: 'Et caus al forat de les letrines: tornes 2 caselles enrere.', effect: 'move', value: -2 },
+    { text: "T'enxampen amb el mòbil els monitors a campaments de Nadal: pagues 100.", effect: 'money', value: -100 },
+    { text: 'Estaves a un poble de raids i et fan fora: tornes a Letrines de campaments sense cobrar.', effect: 'goback', value: 1 },
+    { text: "Se't cau la castanyera plena de castanyes: per les molèsties, pagues 30 als altres equips.", effect: 'each', value: -30 },
+    { text: 'Heu guanyat el joc de 14 h, però fent trampes: esteu un torn sense tirar.', effect: 'skip', value: 0 },
+    { text: 'Toca netejar les letrines: paga 50.', effect: 'money', value: -50 },
+    { text: 'Has deixat la sala de profes feta un desastre: paga 40 per cada casa (i 120 per hotel).', effect: 'repairs', value: 40 },
+    { text: 'Perds el tren a Rubí Centre i hi vas caminant: retrocedeix 3 caselles.', effect: 'move', value: -3 },
+    { text: "Al Bar Juan t'apunten els entrepans de tot l'equip: paga 80.", effect: 'money', value: -80 },
+    { text: "T'enxampen saltant la tanca del cau: ves directament a la presó.", effect: 'jail', value: 0 },
   ],
 };
 

@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795622936';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795623552';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -69,6 +69,20 @@ function migrate() {
       state.config.rules.parkingPot = true;
     }
   });
+  // contingut de 25/11: carrers i cartes d'en Nacho i d'en Pau (només on encara hi ha els d'exemple)
+  if ((state.config.contentV || 0) < 2) {
+    const OLD = { 1: 'Lavabos del cau', 2: 'Magatzem de material', 3: 'Estació FGC Rubí', 4: 'Pati del cau', 5: 'Local de Pioners', 13: 'Castell de Rubí', 14: 'Plaça del Doctor Guardiet', 15: 'Cremallera de Núria', 16: 'Montserrat', 17: 'Sant Llorenç del Munt' };
+    Object.entries(OLD).forEach(([i, old]) => {
+      const s = state.config.board[i];
+      if (s && s.name === old && BOARD[i]) s.name = BOARD[i].name;
+    });
+    const c = state.config.cards;
+    if (c?.good?.[0]?.text === 'Has muntat la tenda en tres minuts. Cobra 150.' && c?.bad?.[0]?.text === "T'has deixat el sac de dormir a casa. Paga 100.") {
+      state.config.cards = clone(CARDS);
+      state.decks = { good: shuffle(range(CARDS.good.length)), bad: shuffle(range(CARDS.bad.length)) };
+    }
+    state.config.contentV = 2;
+  }
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
   state.started ??= state.log.length > 0;
@@ -505,7 +519,11 @@ export function drawCard(t, deck) {
   save();
 }
 
-export function applyCard() {
+// estacions del tauler (per a la carta de la T-lleure)
+export const stations = () => state.config.board.map((s, i) => (s.type === 'station' ? i : -1)).filter((i) => i >= 0);
+
+// choice: per a la carta d'estació, la casella triada (si no, la pròxima estació endavant)
+export function applyCard(choice) {
   const q = state.queue[0];
   if (!q || q.type !== 'card') return;
   checkpoint();
@@ -561,6 +579,32 @@ export function applyCard() {
     case 'extra':
       T.extra++;
       break;
+    case 'station': {
+      if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }
+      const st = stations();
+      if (!st.length) break;
+      const next = st.find((i) => i > T.pos) ?? st[0];
+      const target = st.includes(Number(choice)) ? Number(choice) : next;
+      if (target === T.pos) { land(t, true); break; }
+      moveTo(t, target, true);
+      land(t, true);
+      break;
+    }
+    case 'perprop': {
+      const n = propsOf(t).length;
+      const total = n * Math.abs(v);
+      if (!total) { log(`${T.name} no té cap propietat.`, 'info'); break; }
+      if (v >= 0) transfer('bank', t, total, 'carta'); else transfer(t, 'bank', total, 'carta');
+      log(`${T.name} ${v >= 0 ? 'cobra' : 'paga'} ${money(total)} (${n} ${n === 1 ? 'propietat' : 'propietats'}).`, v >= 0 ? 'good' : 'bad');
+      break;
+    }
+    case 'goback': {
+      if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }
+      const target = ((v % N()) + N()) % N();
+      if (target !== T.pos) moveTo(t, target, false);
+      land(t, true);
+      break;
+    }
     default:
       break;
   }

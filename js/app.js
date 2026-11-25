@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795622936';
+import * as G from './engine.js?v=1795623552';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden, watchIdle, demoFaces,
-} from './board.js?v=1795622936';
-import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795622936';
-import * as S3 from './scene.js?v=1795622936';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795622936';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795622936';
+} from './board.js?v=1795623552';
+import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795623552';
+import * as S3 from './scene.js?v=1795623552';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795623552';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795623552';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -243,6 +243,9 @@ function effectSummary(c) {
     case 'repairs': return `${G.money(v)} per casa`;
     case 'skip': return 'Perd el pròxim torn';
     case 'extra': return 'Tirada extra';
+    case 'station': return 'Tria una estació';
+    case 'perprop': return v >= 0 ? `Cobra ${G.money(v)} per propietat` : `Paga ${G.money(-v)} per propietat`;
+    case 'goback': return `Torna a ${G.sq(((v % G.N()) + G.N()) % G.N())?.name || 'la casella'}`;
     default: return 'Ho apliqueu vosaltres';
   }
 }
@@ -260,13 +263,17 @@ function cardModal(q, cardId = null) {
       <div class="card-stage"><div class="gcard flip" style="--deck:${deckColor}">
         <img class="gimg" src="${S3.cardFaceImage(q.deck, { text: c.text, foot: effectSummary(c), effect: c.effect, value: c.value })}" alt="${esc(c.text)}. ${esc(effectSummary(c))}">
       </div></div>`,
-    foot: `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
+    // T-lleure: un botó per cada estació (si l'equip és a la presó, la carta no el mou)
+    foot: c.effect === 'station' && !T.jail
+      ? `<span class="muted">A quina estació va?</span><span class="spacer"></span>${G.stations().map((i) => `<button class="btn btn-primary" type="button" data-st="${i}">${esc(G.sq(i).name)}</button>`).join('')}`
+      : `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
     onMount(d) {
       if (cardId !== null) dlg.dataset.cardId = String(cardId);
       setTimeout(() => (good ? sfx.good() : sfx.bad()), 450);
-      const b = d.querySelector('[data-a=apply]');
-      b.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(); after(); });
-      b.focus();
+      d.querySelectorAll('[data-st]').forEach((s) => s.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(Number(s.dataset.st)); after(); }));
+      const b = d.querySelector('[data-a=apply]') || d.querySelector('[data-st]');
+      if (b?.dataset.a) b.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(); after(); });
+      b?.focus();
     },
   });
 }
