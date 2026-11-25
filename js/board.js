@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795625412';
-import * as S3 from './scene.js?v=1795625412';
-import { sfx } from './sound.js?v=1795625412';
-import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795625412';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795626834';
+import * as S3 from './scene.js?v=1795626834';
+import { sfx } from './sound.js?v=1795626834';
+import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795626834';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -550,7 +550,7 @@ export async function drawCardFx(deck, card) {
 }
 
 // cartell de l'Oest: cau al mig de la pantalla i després se'n va volant cap a la presó
-const CRIMES = ['Per mal rotllet', 'Per robar xuxes', 'Per no fregar les olles', 'Per roncar a la tenda', 'Per perdre el fular', 'Per arribar tard a la formació'];
+const CRIMES = ['Per mal rotllet', 'Per fer servir el mòbil', 'Per no fregar les olles', 'Per roncar a la tenda', 'Per perdre el fular', 'Per arribar tard a la formació'];
 const REWARDS = ['una bossa de xuxes', 'un entrepà de Nocilla', 'el postre de tothom','un got de Cola Cao', 'deu minuts més de foc'];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 async function wanted(k, face) {
