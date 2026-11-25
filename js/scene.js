@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611612';
-import { photoOf, initials } from './util.js?v=1795611612';
-import { deckName } from './data.js?v=1795611612';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611882';
+import { photoOf, initials } from './util.js?v=1795611882';
+import { deckName } from './data.js?v=1795611882';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1413,8 +1413,12 @@ function hatchTexture() {
 }
 
 const avatarKeys = [];
+// equips que fan fallida i encara no s'ha vist l'animació: la seva fitxa i les plaques es queden fins aleshores
+const dying = new Set();
+const heldTeams = () => new Set([...dying, ...fxQueue.filter((e) => e.type === 'bankrupt').map((e) => e.team)]);
 export function refresh(animateHouses = false) {
   if (!scene) return;
+  const held = heldTeams();
   if (!displayPos) {
     displayPos = {};
     state.teams.forEach((t, k) => { displayPos[k] = { pos: t.pos, jail: t.jail }; });
@@ -1447,8 +1451,8 @@ export function refresh(animateHouses = false) {
       p.userData.sprite.material.map = avatarTexture(t);
       p.userData.sprite.material.needsUpdate = true;
     }
-    p.visible = !t.bankrupt;
-    if (!animating.has(k)) p.position.copy(pawnTarget(k));
+    p.visible = !t.bankrupt || held.has(k);
+    if (!animating.has(k) && !dying.has(k)) p.position.copy(pawnTarget(k));
   });
   turnTeam = state.turn;
   syncCages();
@@ -1459,6 +1463,8 @@ export function refresh(animateHouses = false) {
   for (let i = 0; i < N(); i++) {
     const o = state.owners[i];
     const r = rect(i);
+    // propietat d'un equip que fa fallida: la placa i les cases esperen l'animació
+    if (!o && plaques[i] && held.has(Number(plaques[i].key.split('|')[0]))) continue;
     // placa
     const key = o ? `${o.team}|${team(o.team).color}|${team(o.team).name}|${photoOf(team(o.team).id).length}|${rentFor(i)}|${o.mortgaged}|${rules().currency}` : null;
     if (plaques[i] && plaques[i].key !== key) {
@@ -2236,6 +2242,79 @@ function syncPot(animate) {
   group.userData.bills = bills;
   potGroup = group;
   scene.add(group);
+}
+
+// ---------- Fallida amb drama (E8) ----------
+// La fitxa trontolla i cau de costat, es torna grisa, i les plaques de les seves propietats tornen
+// volant al banc (al centre del tauler) mentre les cases s'enfonsen.
+export async function bankruptFx(k, squares = []) {
+  if (!scene) return;
+  dying.add(k);
+  const p = pawns[k];
+  const finish = () => {
+    squares.forEach((i) => {
+      if (plaques[i] && !state.owners[i]) { scene.remove(plaques[i].mesh); delete plaques[i]; }
+      if (!state.owners[i]) { (houses[i] || []).forEach((m) => scene.remove(m)); houses[i] = []; }
+      if (mortMarks[i] && !state.owners[i]) { scene.remove(mortMarks[i]); delete mortMarks[i]; }
+    });
+    if (p) {
+      const inner = p.userData.inner;
+      inner.rotation.z = 0;
+      inner.position.y = 0;
+      p.scale.set(1, 1, 1);
+      if (p.userData.sprite) p.userData.sprite.material.opacity = 1;
+    }
+    dying.delete(k);
+    refresh(false);
+  };
+  if (reduced()) { finish(); return; }
+  shake(0.05, 700);
+  // la fitxa trontolla i cau
+  if (p) {
+    const inner = p.userData.inner;
+    const grey = new THREE.Color(0x8A8FA8);
+    const from = p.userData.mat.color.clone();
+    const spr = p.userData.sprite;
+    if (spr) spr.material.transparent = true;
+    tween(500, (t) => { inner.rotation.z = Math.sin(t * Math.PI * 3) * 0.18 * (1 - t); }, ease.linear).then(() => {
+      tween(650, (t) => {
+        inner.rotation.z = ease.bounce(t) * (Math.PI / 2) * 0.92;
+        p.userData.mat.color.copy(from).lerp(grey, t);
+        if (spr) spr.material.opacity = 1 - t * 0.7;
+      }, ease.linear).then(() => { dustPuff(p.position.x, p.position.z, 14, 0.45); sfxHook?.('poof'); });
+    });
+  }
+  // les plaques tornen al banc
+  let longest = 1300;
+  squares.forEach((i, j) => {
+    const pl = plaques[i];
+    const hs = houses[i] || [];
+    const delay = 500 + j * 130;
+    longest = Math.max(longest, delay + 1000);
+    setTimeout(() => {
+      hs.forEach((m) => {
+        const y0 = m.position.y;
+        tween(420, (t) => { m.scale.setScalar(1 - t); m.position.y = y0 - t * 0.2; }, ease.inOut);
+      });
+      if (!pl) return;
+      const m = pl.mesh;
+      const from = m.position.clone();
+      const to = new THREE.Vector3(rnd3(0.4), 0.35, rnd3(0.4));
+      const spin = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 2);
+      tween(950, (t) => {
+        m.position.lerpVectors(from, to, t);
+        m.position.y = from.y + Math.sin(Math.PI * t) * 1.6 + (to.y - from.y) * t;
+        m.rotation.y = spin * t * Math.PI;
+        m.rotation.x = t * Math.PI * 0.5;
+        const s = 1 - t * 0.85;
+        m.scale.set(s, s, s);
+      }, ease.inOut).then(() => { scene.remove(m); sparkle(to.x, to.z, 6, 0.5); });
+    }, delay);
+  });
+  await new Promise((r) => setTimeout(r, longest));
+  // la fitxa s'esvaeix
+  if (p) await tween(380, (t) => { p.scale.setScalar(1 - t); }, ease.inOut);
+  finish();
 }
 
 // qui cau al Pàrquing s'emporta el pot

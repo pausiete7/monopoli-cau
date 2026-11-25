@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795611612';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795611882';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -774,11 +774,14 @@ export function bankrupt(t) {
 
 function goBankrupt(t) {
   const T = team(t);
-  propsOf(t).forEach((i) => delete state.owners[i]);
+  const squares = propsOf(t);
+  squares.forEach((i) => delete state.owners[i]);
   T.bankrupt = true;
   T.money = 0;
   T.jail = false;
   log(`${T.name} fa fallida i queda fora de la partida. Les seves propietats tornen al banc.`, 'bad');
+  // la fitxa cau i les plaques tornen volant al banc (al centre del tauler)
+  push({ type: 'bankrupt', team: t, squares });
   push({ type: 'banner', text: 'Fallida!', tone: 'bad', team: t, sub: `${T.name} queda fora` });
   const dropped = state.queue.filter((q) => q.team === t).length;
   state.queue = state.queue.filter((q) => q.team !== t);

@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795611612';
-import * as S3 from './scene.js?v=1795611612';
-import { sfx } from './sound.js?v=1795611612';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795611612';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795611882';
+import * as S3 from './scene.js?v=1795611882';
+import { sfx } from './sound.js?v=1795611882';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795611882';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -415,6 +415,11 @@ export async function playFx() {
           else if (/multa/i.test(e.text)) sfx.stamp();
           else if (e.tone === 'good') sfx.good();
           await banner(e.text, e.tone, e.sub);
+          break;
+        case 'bankrupt':
+          // fallida: la fitxa cau i les plaques tornen al banc abans del cartell
+          renderTeams();
+          await S3.bankruptFx(e.team, e.squares);
           break;
         case 'confetti':
           confetti(team(e.team).color);
