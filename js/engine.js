@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795609586';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795610505';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -66,7 +66,7 @@ function migrate() {
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
   state.started ??= state.log.length > 0;
-  state.teams.forEach((t, k) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; t.token ??= TEAMS[k % TEAMS.length].token; });
+  state.teams.forEach((t, k) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; t.token ??= TEAMS[k % TEAMS.length].token; if (t.token === 'bruixola') t.token = 'fular'; if (t.token === 'fanal') t.token = 'frontal'; });
 }
 
 export function defaultConfig() {

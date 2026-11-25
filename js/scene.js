@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795609586';
-import { photoOf, initials } from './util.js?v=1795609586';
-import { deckName } from './data.js?v=1795609586';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795610505';
+import { photoOf, initials } from './util.js?v=1795610505';
+import { deckName } from './data.js?v=1795610505';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -813,19 +813,23 @@ function makeToken(kind, color) {
     add(new THREE.CylinderGeometry(0.035, 0.045, 0.07, 16), metal, 0, 0.42);
     add(new THREE.CylinderGeometry(0.05, 0.05, 0.045, 16), dark, 0, 0.47);
     add(new THREE.TorusGeometry(0.17, 0.012, 6, 30, Math.PI * 0.9), wood, 0, 0.26, -0.03, 0, 0, Math.PI * 0.05);
-  } else if (kind === 'bruixola') {
-    add(new THREE.CylinderGeometry(0.035, 0.06, 0.1, 16), metal, 0, 0.1);
-    add(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 44), mat, 0, 0.29, 0, Math.PI / 2);
-    add(new THREE.CircleGeometry(0.13, 40), white, 0, 0.29, 0.031);
-    const needle = (up, m) => {
-      const s = new THREE.Shape();
-      s.moveTo(-0.025, 0); s.lineTo(0, up ? 0.11 : -0.11); s.lineTo(0.025, 0); s.closePath();
-      add(new THREE.ShapeGeometry(s), m, 0, 0.29, 0.033);
-    };
-    needle(true, tokMat('red', { color: 0xE8473B, roughness: 0.4 }));
-    needle(false, tokMat('grey', { color: 0x8A8FA8, roughness: 0.4 }));
-    add(new THREE.CircleGeometry(0.014, 12), dark, 0, 0.29, 0.034);
-    add(new THREE.TorusGeometry(0.035, 0.012, 8, 20), gold, 0, 0.47);
+  } else if (kind === 'fogonet') {
+    // fogonet de càmping: bombona del color de l'equip, cremador i flama blava
+    add(new THREE.CylinderGeometry(0.11, 0.11, 0.17, 32), mat, 0, 0.145);
+    add(new THREE.CylinderGeometry(0.1125, 0.1125, 0.05, 32), white, 0, 0.15);
+    const dome = add(new THREE.SphereGeometry(0.11, 28, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat, 0, 0.23);
+    dome.scale.y = 0.35;
+    add(new THREE.CylinderGeometry(0.03, 0.035, 0.05, 14), metal, 0, 0.285);
+    add(new THREE.CylinderGeometry(0.06, 0.045, 0.035, 20), metal, 0, 0.32);
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2;
+      add(new THREE.BoxGeometry(0.1, 0.012, 0.012), metal, Math.cos(a) * 0.07, 0.345, Math.sin(a) * 0.07, 0, -a, 0);
+    }
+    const blue = tokMat('blueflame', { color: 0x7FB8FF, emissive: 0x2F7BFF, emissiveIntensity: 1.3, roughness: 0.3 });
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * Math.PI * 2;
+      flames.push(add(new THREE.ConeGeometry(0.014, 0.06, 8), blue, Math.cos(a) * 0.04, 0.365, Math.sin(a) * 0.04));
+    }
   } else if (kind === 'bota') {
     add(new THREE.BoxGeometry(0.13, 0.25, 0.14), mat, -0.04, 0.22, 0);
     add(new THREE.BoxGeometry(0.24, 0.1, 0.15), mat, 0.03, 0.12, 0);
@@ -834,12 +838,25 @@ function makeToken(kind, color) {
     add(new THREE.BoxGeometry(0.15, 0.045, 0.16), dark, -0.04, 0.355, 0);
     for (let k = 0; k < 3; k++) add(new THREE.BoxGeometry(0.008, 0.012, 0.1), white, 0.03 - k * 0.025, 0.2 + k * 0.045, 0.072, 0, Math.PI / 2, 0);
     inner.children.slice(2).forEach((o) => { o.rotation.y -= 0.6; o.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.6); });
-  } else if (kind === 'fanal') {
-    add(new THREE.BoxGeometry(0.2, 0.04, 0.2), mat, 0, 0.08);
-    add(new THREE.CylinderGeometry(0.075, 0.075, 0.18, 20), tokMat('glow', { color: 0xFFE38A, emissive: 0xFFB020, emissiveIntensity: 1.1, roughness: 0.3 }), 0, 0.19);
-    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([x, z]) => add(new THREE.BoxGeometry(0.02, 0.2, 0.02), mat, x * 0.085, 0.19, z * 0.085));
-    add(new THREE.ConeGeometry(0.15, 0.11, 4), mat, 0, 0.345, 0, 0, Math.PI / 4);
-    add(new THREE.TorusGeometry(0.05, 0.012, 8, 20), metal, 0, 0.44);
+  } else if (kind === 'frontal') {
+    // llanterna frontal deixada a terra: cinta elàstica del color de l'equip i el llum encès
+    add(new THREE.TorusGeometry(0.13, 0.026, 10, 44), mat, 0, 0.14, -0.02, Math.PI / 2 - 0.35);
+    add(new THREE.TorusGeometry(0.11, 0.02, 8, 30, Math.PI), mat, 0, 0.16, -0.06, 0.25, 0, 0);
+    add(new THREE.BoxGeometry(0.15, 0.1, 0.07), dark, 0, 0.2, 0.12, -0.3);
+    add(new THREE.BoxGeometry(0.155, 0.02, 0.075), mat, 0, 0.26, 0.105, -0.3);
+    add(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 20), tokMat('lens', { color: 0xFFF6D6, emissive: 0xFFE9A0, emissiveIntensity: 1.4, roughness: 0.2 }), 0, 0.205, 0.158, Math.PI / 2 - 0.3);
+  } else if (kind === 'fular') {
+    // fular escolta estès: triangle del color de l'equip amb vora blanca, enrotllat a dalt i amb l'anella
+    const tri = (w, top, bottom, m, z) => {
+      const s = new THREE.Shape();
+      s.moveTo(-w, top); s.lineTo(w, top); s.lineTo(0, bottom); s.closePath();
+      add(new THREE.ShapeGeometry(s), m, 0, 0, z).material.side = THREE.DoubleSide;
+    };
+    tri(0.22, 0.47, 0.07, white, -0.004);
+    tri(0.19, 0.455, 0.115, mat, 0);
+    add(new THREE.CylinderGeometry(0.03, 0.03, 0.46, 16), mat, 0, 0.47, 0.01, 0, 0, Math.PI / 2);
+    add(new THREE.TorusGeometry(0.04, 0.016, 10, 22), wood, 0, 0.36, 0.025);
+    [-1, 1].forEach((sgn) => add(new THREE.BoxGeometry(0.05, 0.13, 0.016), mat, sgn * 0.03, 0.27, 0.02, 0, 0, sgn * 0.18));
   } else if (kind === 'foguera') {
     for (let k = 0; k < 3; k++) {
       const a = (k / 3) * Math.PI;
@@ -1503,51 +1520,84 @@ export function refresh(animateHouses = false) {
 }
 
 // ---------- Banderes de grup complet (E3) ----------
-// Quan un equip té totes les propietats d'un color, hi oneja una bandera seva entre les caselles,
-// just a dins del tauler (no tapa cap casella).
+// Quan un equip té totes les propietats d'un color, s'hi planta un pal com el del cau: tronc de
+// fusta una mica tort, munt de pedres a la base, una corda amb banderetes de verbena i la bandera
+// de l'equip a dalt. Va al marc de fora del tauler, entre les caselles del grup: no xoca amb els
+// malls ni amb les cartes.
 const flags = {};
-const FLAG_S = 1.3;
-let poleGeo = null;
+const FLAG_S = 1.25;
+const FLAG_W = 0.3;
 function flagTexture(t) {
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 168;
+  c.width = 256; c.height = 170;
   const g = c.getContext('2d');
   g.fillStyle = t.color;
-  g.fillRect(0, 0, 256, 168);
+  g.fillRect(0, 0, 256, 170);
   g.fillStyle = 'rgba(255,255,255,.9)';
-  g.fillRect(0, 128, 256, 14);
-  setFont(g, 900, 78, 'normal');
+  g.fillRect(0, 132, 256, 14);
+  setFont(g, 900, 80, 'normal');
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillStyle = '#fff';
   g.shadowColor = 'rgba(0,0,0,.3)';
   g.shadowOffsetY = 3;
-  g.fillText(initials(t.name), 128, 70);
+  g.fillText(initials(t.name), 128, 72);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
+const lighten = (hex, k) => new THREE.Color(hex).lerp(new THREE.Color(0xffffff), k);
 function makeFlag(t) {
-  poleGeo = poleGeo || new THREE.CylinderGeometry(0.014, 0.018, 0.8, 10);
   const g = new THREE.Group();
-  const metal = tokMat('metal', { color: 0xC9CDDA, metalness: 0.85, roughness: 0.3 });
-  const pole = new THREE.Mesh(poleGeo, metal);
-  pole.position.y = 0.4;
+  const wood = tokMat('pole', { color: 0xA9875F, roughness: 0.9 });
+  const stone = tokMat('stone', { color: 0x9A96A8, roughness: 0.9 });
+  // tronc
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.03, 1.08, 9), wood);
+  pole.position.y = 0.54;
+  pole.rotation.z = -0.035;
   pole.castShadow = true;
   g.add(pole);
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.032, 14, 10), tokMat('gold', { color: 0xFFC83D, metalness: 0.8, roughness: 0.3 }));
-  ball.position.y = 0.82;
-  g.add(ball);
-  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.03, 18), metal);
-  foot.position.y = 0.015;
-  g.add(foot);
-  const geo = new THREE.PlaneGeometry(0.44, 0.29, 16, 4);
-  geo.translate(0.22, 0, 0);
-  const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: flagTexture(t), side: THREE.DoubleSide, roughness: 0.7 }));
+  // nusos de la fusta
+  [0.3, 0.62, 0.85].forEach((y, j) => {
+    const n = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 5), wood);
+    n.position.set(0.012 - y * 0.035 + (j % 2 ? 0.01 : -0.012), y, 0.01);
+    n.scale.set(1, 0.6, 1);
+    g.add(n);
+  });
+  // munt de pedres
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + 0.3;
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.03 + (k % 3) * 0.008, 0), stone);
+    st.position.set(Math.cos(a) * 0.06, 0.02 + (k % 2) * 0.02, Math.sin(a) * 0.06);
+    st.rotation.set(a, a * 2, 0);
+    st.castShadow = true;
+    g.add(st);
+  }
+  // el conjunt que s'hissa: corda, banderetes i bandera
+  const rig = new THREE.Group();
+  g.add(rig);
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.95, 4), tokMat('rope', { color: 0xF2EBDC, roughness: 1 }));
+  rope.position.set(0.034, 0.56, 0);
+  rig.add(rope);
+  const geo = new THREE.PlaneGeometry(FLAG_W, 0.2, 14, 4);
+  geo.translate(FLAG_W / 2, 0, 0);
+  const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: flagTexture(t), side: THREE.DoubleSide, roughness: 0.75 }));
   cloth.castShadow = true;
-  cloth.position.set(0.015, 0.64, 0);
-  g.add(cloth);
-  g.userData = { cloth, base: Float32Array.from(geo.attributes.position.array), phase: Math.random() * 6 };
+  cloth.position.set(0.034, 0.93, 0);
+  rig.add(cloth);
+  // banderetes de verbena penjades a la corda
+  const pennants = [];
+  const cols = [t.color, 0xFFC83D, lighten(t.color, 0.45), 0xE8473B, t.color];
+  cols.forEach((col, j) => {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0.045); s.lineTo(0.13, 0); s.lineTo(0, -0.045); s.closePath();
+    const p = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ color: col, side: THREE.DoubleSide, roughness: 0.7 }));
+    p.position.set(0.034, 0.76 - j * 0.12, 0);
+    p.castShadow = true;
+    rig.add(p);
+    pennants.push(p);
+  });
+  g.userData = { cloth, rig, pennants, base: Float32Array.from(geo.attributes.position.array), phase: Math.random() * 6 };
   return g;
 }
 function groupsOf() {
@@ -1555,17 +1605,17 @@ function groupsOf() {
   state.config.board.forEach((s, i) => { if (s.type === 'prop') (out[s.group] = out[s.group] || []).push(i); });
   return out;
 }
+// al marc del tauler, a la ratlla entre les caselles del grup
 function flagSpot(list) {
-  const h = L() / 2;
+  const h = L() / 2 + 0.11;
   const cs = list.map((i) => center(rect(i)));
   const mx = cs.reduce((a, c) => a + c.x, 0) / cs.length;
   const mz = cs.reduce((a, c) => a + c.z, 0) / cs.length;
   const side = rect(list[0]).side;
-  const inset = C + 0.24;
-  if (side === 'b') return { x: mx, z: h - inset };
-  if (side === 't') return { x: mx, z: -h + inset };
-  if (side === 'l') return { x: -h + inset, z: mz };
-  return { x: h - inset, z: mz };
+  if (side === 'b') return { x: mx, z: h };
+  if (side === 't') return { x: mx, z: -h };
+  if (side === 'l') return { x: -h, z: mz };
+  return { x: h, z: mz };
 }
 function syncFlags(animate) {
   const gs = groupsOf();
@@ -1585,19 +1635,19 @@ function syncFlags(animate) {
       const t = team(o0.team);
       const f = makeFlag(t);
       const s = flagSpot(list);
-      f.position.set(s.x, 0, s.z);
+      f.position.set(s.x, -0.04, s.z);
       f.scale.setScalar(FLAG_S);
       scene.add(f);
       flags[gk] = { group: f, key };
       if (animate && !reduced()) {
-        // la bandera puja pel pal, amb espurnes
-        const cloth = f.userData.cloth;
+        // el pal surt i les banderes s'hissen corda amunt, amb espurnes
+        const rig = f.userData.rig;
         f.scale.setScalar(0.001);
-        tween(300, (p) => { f.scale.setScalar(FLAG_S * ease.back(p)); }, ease.linear).then(() => {
-          cloth.position.y = 0.1;
-          tween(900, (p) => { cloth.position.y = 0.1 + 0.54 * p; }, ease.out);
+        rig.scale.set(1, 0.001, 1);
+        tween(320, (p) => { f.scale.setScalar(FLAG_S * ease.back(p)); }, ease.linear).then(() => {
+          tween(1000, (p) => { rig.scale.set(1, Math.max(0.001, p), 1); rig.position.y = (1 - p) * 0.9; }, ease.out);
           sfxHook?.('good');
-          setTimeout(() => sparkle(s.x, s.z, 22, 1.1), 700);
+          setTimeout(() => sparkle(s.x, s.z, 22, 1.2), 800);
         });
       }
     }
@@ -1605,15 +1655,16 @@ function syncFlags(animate) {
 }
 function waveFlags(now) {
   Object.values(flags).forEach(({ group }) => {
-    const { cloth, base, phase } = group.userData;
+    const { cloth, base, phase, pennants } = group.userData;
     const pos = cloth.geometry.attributes.position;
     for (let v = 0; v < pos.count; v++) {
       const x = base[v * 3];
-      const k = x / 0.44;
-      pos.array[v * 3 + 2] = Math.sin(x * 14 - now / 170 + phase) * 0.035 * k;
-      pos.array[v * 3 + 1] = base[v * 3 + 1] - k * k * 0.02;
+      const k = x / FLAG_W;
+      pos.array[v * 3 + 2] = Math.sin(x * 18 - now / 170 + phase) * 0.03 * k;
+      pos.array[v * 3 + 1] = base[v * 3 + 1] - k * k * 0.015;
     }
     pos.needsUpdate = true;
+    pennants.forEach((p, j) => { p.rotation.y = Math.sin(now / 260 + phase + j * 0.9) * 0.45; });
   });
 }
 

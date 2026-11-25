@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795609586';
+import * as G from './engine.js?v=1795610505';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795609586';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795609586';
-import * as S3 from './scene.js?v=1795609586';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795609586';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795609586';
+} from './board.js?v=1795610505';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795610505';
+import * as S3 from './scene.js?v=1795610505';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795610505';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795610505';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1023,9 +1023,10 @@ const TOKEN_ICONS = {
   foguera: '<path d="M12 3c3 4 5 6 3 10-1 2-5 2-6 0-1-3 2-5 3-10Z"/><path d="M4 20l16-4M4 16l16 4"/>',
   cantimplora: '<circle cx="12" cy="14" r="7"/><path d="M10 7V4h4v3"/><path d="M5 10c2-4 12-4 14 0"/>',
   tenda: '<path d="M3 20 12 4l9 16Z"/><path d="M9 20l3-6 3 6"/>',
-  bruixola: '<circle cx="12" cy="12" r="9"/><path d="M12 5l2.5 7-2.5 7-2.5-7Z"/>',
+  fogonet: '<path d="M7 11h10v10H7Z"/><path d="M10 11V8h4v3M6 8h12"/><path d="M10 5c0-1 1-2 2-3 1 1 2 2 2 3"/>',
   bota: '<path d="M7 3h6v10l7 2v5H5v-7Z"/><path d="M5 17h15"/>',
-  fanal: '<path d="M8 8h8v10H8Z"/><path d="M7 18h10v3H7ZM9 8l3-4 3 4M12 11v4"/>',
+  fular: '<path d="M3 5h18l-9 15Z"/><circle cx="12" cy="9" r="2"/>',
+  frontal: '<ellipse cx="12" cy="15" rx="9" ry="4"/><path d="M9 9h6v5H9Z"/><path d="M15 11l5-2M15 12h5"/>',
   peo: '<circle cx="12" cy="6" r="3"/><path d="M10 9h4l1 9H9ZM7 21h10"/>',
 };
 const tokenPick = (k, cur) => `<div class="tok-pick" role="group" aria-label="Fitxa">${Object.entries(TOKENS).map(([key, label]) => `<button type="button" data-ttoken="${k}:${key}" aria-pressed="${key === (cur || 'peo')}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24">${TOKEN_ICONS[key]}</svg></button>`).join('')}</div>`;
