@@ -44,8 +44,8 @@ export const BOARD = [
   P('Sala de profes', 'verd', 300, [40, 195, 585, 1180, 1240, 1435], 200),
   P("Cim de la Pica d'Estats", 'verd', 320, [40, 225, 675, 1315, 1350, 1575], 200),
   S('Estació de Sants'),
-  P('Bar Juan', 'blau', 350, [55, 265, 750, 1445, 1465, 1690], 200),
-  P('Canu', 'blau', 400, [75, 300, 900, 1840, 1915, 2250], 200),
+  P('Canu', 'blau', 350, [55, 265, 750, 1445, 1465, 1690], 200),
+  P('Bar Juan', 'blau', 400, [75, 300, 900, 1840, 1915, 2250], 200),
 ];
 
 // Efectes possibles d'una carta:
@@ -90,7 +90,7 @@ export const CARDS = {
     { text: "Has fet camp a través a l'etapa de la ruta i arribes el primer: avança 3 caselles.", effect: 'move', value: 3 },
     { text: "Abans de l'etapa més dura de la ruta, has fingit que et feia mal el peu i t'han portat amb l'avituallament al càmping del jacuzzi: ves a la Sortida i cobra 200.", effect: 'goto', value: 0 },
     { text: "L'extrajob de fer un dinar popular ha sortit molt bé: cobra 200.", effect: 'money', value: 200 },
-    { text: "S'ha acabat el cau i heu quedat tots per anar al Juan: ves directament al Bar Juan i, si passes per la Sortida, cobra.", effect: 'goto', value: 22 },
+    { text: "S'ha acabat el cau i heu quedat tots per anar al Juan: ves directament al Bar Juan i, si passes per la Sortida, cobra.", effect: 'goto', value: 23 },
   ],
   bad: [
     { text: 'Et caus al forat de les letrines: tornes 2 caselles enrere.', effect: 'move', value: -2 },

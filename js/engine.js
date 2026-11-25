@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795626954';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795636321';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -99,6 +99,13 @@ function migrate() {
       for (let k = 5; k < 10; k++) { c.good[k] = clone(CARDS.good[k]); c.bad[k] = clone(CARDS.bad[k]); }
     }
     state.config.contentV = 4;
+  }
+  // 25/11 nit: el Bar Juan passa a ser l'última casella (la més cara) i el Canu la de davant
+  if (state.config.contentV < 5) {
+    const b = state.config.board;
+    if (b[22]?.name === 'Bar Juan' && b[23]?.name === 'Canu') { b[22].name = 'Canu'; b[23].name = 'Bar Juan'; }
+    state.config.cards?.good?.forEach((c) => { if (c.effect === 'goto' && c.value === 22 && /Bar Juan/.test(c.text)) c.value = 23; });
+    state.config.contentV = 5;
   }
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
@@ -867,7 +874,7 @@ function goBankrupt(t) {
     state.winner = left[0];
     log(`${w.name} guanya el Caupoli!`, 'good');
     push({ type: 'banner', text: `Guanya ${w.name}!`, tone: 'good', team: left[0], sub: 'Tots els altres equips han fet fallida' });
-    push({ type: 'confetti', team: left[0] });
+    push({ type: 'confetti', team: left[0], win: true });
   }
 }
 
@@ -879,7 +886,7 @@ export function finishGame(k) {
   state.queue = [];
   log(`S'acaba la partida per temps. Guanya ${team(k).name}!`, 'good');
   push({ type: 'banner', text: `Guanya ${team(k).name}!`, tone: 'good', team: k, sub: 'És l\'equip amb més patrimoni' });
-  push({ type: 'confetti', team: k });
+  push({ type: 'confetti', team: k, win: true });
   save();
 }
 

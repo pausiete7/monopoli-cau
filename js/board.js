@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795626954';
-import * as S3 from './scene.js?v=1795626954';
-import { sfx } from './sound.js?v=1795626954';
-import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795626954';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795636321';
+import * as S3 from './scene.js?v=1795636321';
+import { sfx } from './sound.js?v=1795636321';
+import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795636321';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -473,6 +473,8 @@ export async function playFx() {
           await S3.bankruptFx(e.team, e.squares);
           break;
         case 'confetti':
+          // només per guanyar la partida; tenir tot un color ja es veu amb la bandera del pal
+          if (!e.win) break;
           confetti(team(e.team).color);
           sfx.good();
           // guanyador: corona, focus i focs artificials (sense moure la càmera)

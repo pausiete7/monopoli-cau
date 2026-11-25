@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795626954';
-import { photoOf, initials } from './util.js?v=1795626954';
-import { deckName } from './data.js?v=1795626954';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795636321';
+import { photoOf, initials } from './util.js?v=1795636321';
+import { deckName } from './data.js?v=1795636321';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
