@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795622191';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795622936';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -42,6 +42,12 @@ export function load() {
       state = JSON.parse(raw);
       undoStack = JSON.parse(read(UNDO_KEY) || '[]');
       migrate();
+      // partida desada amb el tauler antic (amb interrogants): es torna a començar amb el tauler de 24 caselles
+      if (state.config.board.some((s) => s.type === 'chance') || state.config.board.length !== BOARD.length) {
+        newGame({ ...state.config, board: clone(BOARD) }, state.teams);
+        undoStack = [];
+        return false;
+      }
       return true;
     } catch { /* estat trencat: en comencem un de nou */ }
   }
