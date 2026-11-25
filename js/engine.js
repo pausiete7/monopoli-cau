@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795623777';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795624686';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -91,6 +91,14 @@ function migrate() {
       if (s && s.name === old && BOARD[i]) s.name = BOARD[i].name;
     });
     state.config.contentV = 3;
+  }
+  // 25/11 nit: les 10 cartes d'en Pau substitueixen les que havia proposat jo (si no s'han tocat)
+  if (state.config.contentV < 4) {
+    const c = state.config.cards;
+    if (c?.good?.[5]?.text === "Has trobat un bitllet a la butxaca del fular de l'any passat. Cobra 100." && c?.bad?.[5]?.text === 'Toca netejar les letrines: paga 50.') {
+      for (let k = 5; k < 10; k++) { c.good[k] = clone(CARDS.good[k]); c.bad[k] = clone(CARDS.bad[k]); }
+    }
+    state.config.contentV = 4;
   }
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
