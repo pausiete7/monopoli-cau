@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795607285';
-import * as S3 from './scene.js?v=1795607285';
-import { sfx } from './sound.js?v=1795607285';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795607285';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795608270';
+import * as S3 from './scene.js?v=1795608270';
+import { sfx } from './sound.js?v=1795608270';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795608270';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -347,7 +347,7 @@ export async function playFx() {
             const p = e.path[s];
             const last = s === e.path.length - 1;
             const jailed = last && team(e.team).jail && sq(p).type === 'jail';
-            await S3.hop(e.team, p, jailed, { jump: e.jump, onStep: () => sfx.hop() });
+            await S3.hop(e.team, p, jailed, { jump: e.jump, last, onStep: () => sfx.hop() });
           }
           if (fx[0]?.type !== 'land') S3.focus(false);
           break;

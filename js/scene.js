@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795607285';
-import { photoOf, initials } from './util.js?v=1795607285';
-import { deckName } from './data.js?v=1795607285';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795608270';
+import { photoOf, initials } from './util.js?v=1795608270';
+import { deckName } from './data.js?v=1795608270';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1523,7 +1523,70 @@ export function syncDisplay() {
 }
 
 // ---------- Animacions ----------
-export async function hop(k, toPos, jail, { jump = false, onStep } = {}) {
+// ---------- Estela i ona (E2) ----------
+let trailGeo = null;
+let printGeo = null;
+let rippleGeo = null;
+const fadeMesh = (geo, color, opacity) => new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+// espurnes del color de l'equip que es queden enrere mentre la fitxa salta
+function trailDot(pos, color) {
+  trailGeo = trailGeo || new THREE.SphereGeometry(0.075, 12, 10);
+  const m = fadeMesh(trailGeo, color, 0.85);
+  m.position.set(pos.x + rnd3(0.03), pos.y + 0.18, pos.z + rnd3(0.03));
+  scene.add(m);
+  const y0 = m.position.y;
+  tween(700, (t) => {
+    const s = 1 - t * 0.8;
+    m.scale.set(s, s, s);
+    m.position.y = y0 - t * 0.12;
+    m.material.opacity = 0.85 * (1 - t);
+  }, ease.out).then(() => { scene.remove(m); m.material.dispose(); });
+}
+// petjada rodona a cada casella per on passa
+function footprint(x, z, color) {
+  printGeo = printGeo || new THREE.CircleGeometry(0.17, 32);
+  const m = fadeMesh(printGeo, color, 0.5);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.007, z);
+  scene.add(m);
+  tween(1500, (t) => {
+    const s = 1 + t * 0.35;
+    m.scale.set(s, s, 1);
+    m.material.opacity = 0.5 * (1 - t);
+  }, ease.out).then(() => { scene.remove(m); m.material.dispose(); });
+}
+// ones que s'obren a terra quan la fitxa arriba a la casella final
+function ripple(x, z, color) {
+  rippleGeo = rippleGeo || new THREE.RingGeometry(0.86, 1, 56);
+  for (let j = 0; j < 3; j++) {
+    setTimeout(() => {
+      const m = fadeMesh(rippleGeo, j === 1 ? 0xffffff : color, 0.85);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, 0.008 + j * 0.001, z);
+      scene.add(m);
+      const max = 0.95 + j * 0.25;
+      tween(760, (t) => {
+        const s = 0.2 + t * max;
+        m.scale.set(s, s, 1);
+        m.material.opacity = 0.85 * (1 - t) ** 1.5;
+      }, ease.out).then(() => { scene.remove(m); m.material.dispose(); });
+    }, j * 120);
+  }
+}
+
+// només per a proves: deixa la petjada, l'estela i l'ona d'un equip entre dues caselles
+export function debugTrail(k, a, b) {
+  const color = state.teams[k].color;
+  const ca = center(rect(a)); const cb = center(rect(b));
+  for (let j = 0; j <= 8; j++) {
+    const t = j / 8;
+    trailDot({ x: ca.x + (cb.x - ca.x) * t, y: Math.sin(Math.PI * t) * 0.6, z: ca.z + (cb.z - ca.z) * t }, color);
+  }
+  footprint(ca.x, ca.z, color);
+  ripple(cb.x, cb.z, color);
+}
+
+export async function hop(k, toPos, jail, { jump = false, onStep, last = false } = {}) {
   const p = pawns[k];
   if (!p) return;
   animating.add(k);
@@ -1533,15 +1596,23 @@ export async function hop(k, toPos, jail, { jump = false, onStep } = {}) {
   const to = pawnTarget(k);
   const h = jump ? 2.4 : 0.6;
   const inner = p.userData.inner;
+  const color = state.teams[k]?.color || '#ffffff';
   inner.position.y = 0;
   camFocus.x = to.x; camFocus.z = to.z;
+  let lastDot = 0;
   await tween(jump ? 800 : 270, (t) => {
     p.position.lerpVectors(from, to, t);
     p.position.y = Math.sin(Math.PI * t) * h;
     inner.rotation.y = (jump ? 2 : 0.5) * Math.PI * t;
     const st = 1 + Math.sin(Math.PI * t) * 0.08;
     inner.scale.set(1 / Math.sqrt(st), st, 1 / Math.sqrt(st));
+    const now = performance.now();
+    if (!reduced() && t > 0.05 && t < 0.95 && now - lastDot > 32) { lastDot = now; trailDot(p.position, color); }
   }, ease.inOut);
+  if (!reduced()) {
+    footprint(to.x, to.z, color);
+    if (last) { ripple(to.x, to.z, color); dustPuff(to.x, to.z, 10, 0.3); }
+  }
   onStep?.();
   // aterratge: es xafa una mica
   await tween(130, (t) => {
