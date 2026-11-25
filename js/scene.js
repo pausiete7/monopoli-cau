@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795612877';
-import { photoOf, initials } from './util.js?v=1795612877';
-import { deckName } from './data.js?v=1795612877';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795612695';
+import { photoOf, initials } from './util.js?v=1795612695';
+import { deckName } from './data.js?v=1795612695';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1195,7 +1195,6 @@ export function buildBoard() {
   Object.keys(houses).forEach((k) => delete houses[k]);
   Object.keys(mortMarks).forEach((k) => { scene.remove(mortMarks[k]); delete mortMarks[k]; });
   Object.keys(flags).forEach((k) => { scene.remove(flags[k].group); delete flags[k]; });
-  infoKey = '';
   displayPos = null;
   avatarKeys.length = 0;
   refresh(false);
@@ -1461,7 +1460,6 @@ export function refresh(animateHouses = false) {
   });
   turnTeam = state.turn;
   syncCrown();
-  syncInfo();
   syncCages();
   syncPot(animateHouses || potAnimNext);
   potAnimNext = false;
@@ -2557,81 +2555,6 @@ export function train(i) {
 }
 
 // on van les piles de cartes: amb foto al centre, a les cantonades de baix (i més petites) per no tapar cares
-// ---------- Informació al centre (E11) ----------
-// Si no hi ha foto al centre del tauler, entre les piles de cartes es veu la ronda, a qui li toca i
-// l'última jugada.
-let infoMesh = null;
-let infoKey = '';
-function infoTexture() {
-  const c = document.createElement('canvas');
-  c.width = 620; c.height = 600;
-  const g = c.getContext('2d');
-  const T = state.teams[state.turn];
-  roundRect(g, 6, 6, 608, 588, 40);
-  g.fillStyle = 'rgba(255,255,255,.9)';
-  g.fill();
-  g.lineWidth = 6;
-  g.strokeStyle = 'rgba(28,26,58,.18)';
-  g.stroke();
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  setFont(g, 800, 46, 'normal');
-  g.fillStyle = '#5B5A7A';
-  g.fillText('RONDA', 310, 62);
-  setFont(g, 900, 150, 'normal');
-  g.fillStyle = INK;
-  g.fillText(String(state.round), 310, 160);
-  // a qui li toca
-  if (T) {
-    setFont(g, 800, 40, 'normal');
-    g.fillStyle = '#5B5A7A';
-    g.fillText(state.winner !== undefined && state.winner !== null ? 'Ha guanyat' : 'Li toca a', 310, 262);
-    let fs = 64;
-    setFont(g, 900, fs, 'normal');
-    while (g.measureText(T.name).width > 440 && fs > 34) { fs -= 3; setFont(g, 900, fs, 'normal'); }
-    const nw = g.measureText(T.name).width;
-    const x0 = 310 - (nw + 108) / 2;
-    g.beginPath(); g.arc(x0 + 46, 336, 46, 0, Math.PI * 2); g.fillStyle = T.color; g.fill();
-    setFont(g, 900, 38, 'normal');
-    g.fillStyle = '#fff';
-    g.fillText(initials(T.name), x0 + 46, 339);
-    setFont(g, 900, fs, 'normal');
-    g.textAlign = 'left';
-    g.fillStyle = T.color;
-    g.fillText(T.name, x0 + 108, 340);
-    g.textAlign = 'center';
-  }
-  g.fillStyle = 'rgba(28,26,58,.12)';
-  g.fillRect(50, 404, 520, 4);
-  // última jugada
-  const last = state.log[0]?.text || 'Encara no ha passat res.';
-  setFont(g, 800, 32, 'normal');
-  g.fillStyle = '#5B5A7A';
-  g.fillText('Última jugada', 310, 446);
-  setFont(g, 700, 38, 'semi-condensed');
-  g.fillStyle = INK;
-  let lines = wrap(g, last, 560);
-  if (lines.length > 2) { lines = lines.slice(0, 2); lines[1] = `${lines[1].replace(/\s+\S*$/, '')}…`; }
-  lines.forEach((l, k) => g.fillText(l, 310, 498 + k * 44));
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  return tex;
-}function syncInfo() {
-  const show = !photoOf('center') && state.started !== false;
-  const T = state.teams[state.turn];
-  const key = show ? `${state.round}|${state.turn}|${T?.name}|${T?.color}|${state.winner}|${state.log[0]?.t}|${state.log[0]?.text}` : '';
-  if (key === infoKey) return;
-  infoKey = key;
-  if (infoMesh) { scene.remove(infoMesh); infoMesh.material.map?.dispose(); infoMesh.material.dispose(); infoMesh = null; }
-  if (!show) return;
-  infoMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 1.5), new THREE.MeshStandardMaterial({ map: infoTexture(), transparent: true, roughness: 0.7 }));
-  infoMesh.rotation.x = -Math.PI / 2;
-  infoMesh.position.set(0, 0.006, 0.95);
-  infoMesh.receiveShadow = true;
-  scene.add(infoMesh);
-}
-
 function placeDecks() {
   ['good', 'bad'].forEach((d, k) => {
     const g = decks[d]?.group;
