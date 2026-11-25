@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795559824';
-import * as S3 from './scene.js?v=1795559824';
-import { sfx } from './sound.js?v=1795559824';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795559824';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795606375';
+import * as S3 from './scene.js?v=1795606375';
+import { sfx } from './sound.js?v=1795606375';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795606375';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -108,7 +108,7 @@ export function renderDock() {
   $('#dock').innerHTML = `<div class="dock-main">${main}</div>`;
   $('#actions').innerHTML = `
     <nav class="actions" aria-label="Accions">
-      <button class="gbtn gbtn-primary gbtn-wide" type="button" data-act="minigame" ${state.queue.length ? 'disabled title="Primer cal resoldre l\'acció pendent"' : ''}>${icon('trophy')}Minijoc fet</button>
+      <button class="gbtn gbtn-primary gbtn-wide" type="button" data-act="minigame" ${state.queue.length ? 'disabled title="Primer cal resoldre l\'acció pendent"' : ''}>${icon('trophy')}Minijoc</button>
       <button class="gbtn" type="button" data-act="money">${icon('coins')}Diners</button>
       <button class="gbtn" type="button" data-act="trade">${icon('swap')}Intercanvi</button>
       <button class="gbtn gbtn-wide" type="button" data-act="auction">${icon('gavel')}Subhasta</button>

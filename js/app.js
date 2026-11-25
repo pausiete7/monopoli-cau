@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795559824';
+import * as G from './engine.js?v=1795606375';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795559824';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795559824';
-import * as S3 from './scene.js?v=1795559824';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795559824';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795559824';
+} from './board.js?v=1795606375';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795606375';
+import * as S3 from './scene.js?v=1795606375';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795606375';
+import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795606375';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -294,8 +294,162 @@ function deckModal(deck) {
 }
 
 // ---------- Minijoc ----------
+// «Minijoc» obre la ruleta (si està activada a Configuració → Minijocs). Des de la ruleta sempre es pot
+// saltar tot i anar directe a repartir les cartes.
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mgList = () => (S().config.minigames || MINIGAMES).filter((m) => m.trim());
 function minigameModal() {
   if (S().queue.length) { toast('Primer cal resoldre l\'acció pendent: premeu «Continuar».'); return; }
+  if (G.rules().mgWheel === false || mgList().length < 2) { minigameCards(''); return; }
+  wheelModal();
+}
+
+const WHEEL_COLORS = ['#E4572E', '#2D7FF9', '#2E9E5B', '#9B5DE5', '#F2A81D', '#D6408B', '#1F9D80', '#F06A24'];
+const TIMER_KEY = 'caupoli-mg-timer';
+function wheelModal() {
+  const all = mgList();
+  const played = S().mgPlayed || [];
+  let pool = all.filter((m) => !played.includes(m));
+  const allPlayed = !pool.length;
+  if (allPlayed) pool = all.slice();
+  const n = pool.length;
+  const seg = 360 / n;
+  let chosen = '';
+  let angle = 0;
+  let spinning = false;
+  let timerSec = 0;
+  try { timerSec = Number(localStorage.getItem(TIMER_KEY)) || 0; } catch { /* res */ }
+  let timerId = null;
+
+  // ruleta en SVG: un tros per minijoc, amb el nom en radi
+  const R = 200;
+  const slice = (k) => {
+    const a0 = ((k * seg - 90) * Math.PI) / 180;
+    const a1 = (((k + 1) * seg - 90) * Math.PI) / 180;
+    const big = seg > 180 ? 1 : 0;
+    const p = `M0 0 L${(R * Math.cos(a0)).toFixed(2)} ${(R * Math.sin(a0)).toFixed(2)} A${R} ${R} 0 ${big} 1 ${(R * Math.cos(a1)).toFixed(2)} ${(R * Math.sin(a1)).toFixed(2)}Z`;
+    const mid = k * seg + seg / 2;
+    const label = pool[k].length > 22 ? `${pool[k].slice(0, 21)}…` : pool[k];
+    // el nom cap entre el centre i la vora; a la meitat esquerra es gira perquè no quedi de cap per avall
+    const room = R - 16 - 64;
+    const fs = Math.max(10, Math.min(n > 8 ? 14 : 17, room / (label.length * 0.62)));
+    const left = mid > 180;
+    const tr = left ? `rotate(${mid + 90}) translate(${-(R - 16)} 0)` : `rotate(${mid - 90}) translate(${R - 16} 0)`;
+    return `<path d="${p}" fill="${WHEEL_COLORS[k % WHEEL_COLORS.length]}" stroke="#fff" stroke-width="3"/>
+      <text transform="${tr}" text-anchor="${left ? 'start' : 'end'}" dominant-baseline="middle" style="font-size:${fs.toFixed(1)}px">${esc(label)}</text>`;
+  };
+  const svg = `<svg viewBox="-214 -214 428 428" aria-hidden="true">
+    <circle r="212" fill="#1C1A3A"/>
+    <g id="wheelG">${pool.map((_, k) => slice(k)).join('')}</g>
+    <circle r="46" fill="#1C1A3A" stroke="#FFD84D" stroke-width="6"/>
+    <text class="hub" text-anchor="middle" dominant-baseline="middle" y="2">MINIJOC</text>
+  </svg>`;
+  const timerChips = [0, 30, 60, 90].map((s) => `<button class="pill" type="button" data-sec="${s}" aria-pressed="${s === timerSec}">${s ? `${s} s` : 'Sense temps'}</button>`).join('');
+
+  openModal({
+    title: 'Minijoc',
+    wide: true,
+    body: `<div class="wheel-wrap">
+        <div class="wheel"><div class="wheel-pointer"></div>${svg}</div>
+        <div class="mg-side">
+          <div class="mg-result" id="mgRes">${allPlayed ? 'Ja els heu jugat tots: tornen a entrar a la ruleta.' : `Queden ${n} minijocs a la ruleta.`}</div>
+          <label class="field" style="margin:0"><span>O trieu-lo vosaltres</span>
+            <select id="mgHand"><option value="">—</option>${all.map((m) => `<option ${played.includes(m) ? 'class="played"' : ''}>${esc(m)}</option>`).join('')}</select></label>
+          <div><span class="label">Compte enrere</span><div class="chips-row" id="mgSecs">${timerChips}</div></div>
+          <div class="mg-timer" id="mgTimer" hidden></div>
+          <div class="row" style="justify-content:flex-start">
+            <button class="btn" type="button" data-a="timer" hidden>Començar el compte enrere</button>
+          </div>
+        </div>
+      </div>`,
+    foot: `<button class="btn btn-ghost" type="button" data-a="skip">Saltar i repartir cartes</button><span class="spacer"></span>
+      <button class="btn" type="button" data-a="again" hidden>Tornar a girar</button>
+      <button class="btn btn-primary btn-big" type="button" data-a="spin">Girar la ruleta</button>
+      <button class="btn btn-primary btn-big" type="button" data-a="cards" hidden>Repartir cartes</button>`,
+    onMount(d) {
+      dlg.dataset.keep = '1';
+      const g = d.querySelector('#wheelG');
+      const res = d.querySelector('#mgRes');
+      const btn = (a) => d.querySelector(`[data-a=${a}]`);
+      const timerEl = d.querySelector('#mgTimer');
+      const stopTimer = () => { if (timerId) clearInterval(timerId); timerId = null; };
+      const onClose = () => { stopTimer(); spinning = false; dlg.removeEventListener('close', onClose); };
+      dlg.addEventListener('close', onClose);
+
+      const show = (name) => {
+        chosen = name;
+        res.innerHTML = `<span class="muted">Toca jugar a</span><b>${esc(name)}</b>`;
+        res.classList.remove('pop'); void res.offsetWidth; res.classList.add('pop');
+        btn('spin').hidden = true;
+        btn('again').hidden = false;
+        btn('cards').hidden = false;
+        btn('timer').hidden = !timerSec;
+        d.querySelector('#mgHand').value = name;
+      };
+      const spin = () => {
+        if (spinning) return;
+        stopTimer();
+        timerEl.hidden = true;
+        spinning = true;
+        res.textContent = 'Gira, gira…';
+        const k = Math.floor(Math.random() * n);
+        // el punter és a dalt: el tros k ha d'acabar-hi, amb una mica de joc dins del tros
+        const inside = (Math.random() - 0.5) * seg * 0.6;
+        const target = angle - (angle % 360) + 360 * (6 + Math.floor(Math.random() * 2)) + (360 - (k * seg + seg / 2) + inside);
+        const from = angle;
+        const dur = reducedMotion() ? 1 : 5200;
+        const t0 = performance.now();
+        let lastSlice = Math.floor(from / seg);
+        const step = () => {
+          if (!spinning) return;
+          const p = Math.min(1, (performance.now() - t0) / dur);
+          const e = 1 - (1 - p) ** 4;
+          angle = from + (target - from) * e;
+          g.setAttribute('transform', `rotate(${angle.toFixed(2)})`);
+          const s = Math.floor(angle / seg);
+          if (s !== lastSlice) { lastSlice = s; sfx.tick(); }
+          if (p < 1) setTimeout(step, 16);
+          else { spinning = false; sfx.good(); show(pool[k]); }
+        };
+        step();
+      };
+      const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      const startTimer = () => {
+        stopTimer();
+        let left = timerSec;
+        btn('timer').textContent = 'Tornar a començar';
+        timerEl.hidden = false;
+        timerEl.className = 'mg-timer';
+        timerEl.textContent = fmt(left);
+        timerId = setInterval(() => {
+          left--;
+          timerEl.textContent = left > 0 ? fmt(left) : 'Temps!';
+          if (left <= 5 && left > 0) { timerEl.classList.add('hurry'); sfx.tick(); }
+          if (left <= 0) { stopTimer(); timerEl.className = 'mg-timer done'; sfx.whistle(); }
+        }, 1000);
+      };
+
+      btn('spin').addEventListener('click', spin);
+      btn('again').addEventListener('click', spin);
+      btn('timer').addEventListener('click', startTimer);
+      btn('skip').addEventListener('click', () => { onClose(); minigameCards(''); });
+      btn('cards').addEventListener('click', () => { onClose(); minigameCards(chosen); });
+      d.querySelector('#mgHand').addEventListener('change', (e) => { if (e.target.value && !spinning) show(e.target.value); });
+      d.querySelector('#mgSecs').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-sec]');
+        if (!b) return;
+        timerSec = Number(b.dataset.sec);
+        try { localStorage.setItem(TIMER_KEY, String(timerSec)); } catch { /* res */ }
+        d.querySelectorAll('#mgSecs .pill').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        btn('timer').hidden = !timerSec || !chosen;
+        if (!timerSec) { stopTimer(); timerEl.hidden = true; }
+      });
+      btn('spin').focus();
+    },
+  });
+}
+
+function minigameCards(gameName) {
   const dist = {};
   S().teams.forEach((t, k) => { dist[k] = 0; });
   const vals = [-3, -2, -1, 0, 1, 2, 3];
@@ -308,10 +462,10 @@ function minigameModal() {
       <div class="mg-hint">Cap carta</div>
     </div>`)).join('');
   openModal({
-    title: 'Minijoc fet',
+    title: gameName ? `Repartir cartes: ${esc(gameName)}` : 'Repartir cartes',
     body: `<p class="lead">Marqueu quantes cartes agafa cada equip: en positiu, de ${esc(GN)}; en negatiu, de ${esc(BN)}.</p>
       <div class="field"><span>Quin minijoc era? (opcional)</span>
-        <select id="mgName"><option value="">Sense nom</option>${MINIGAMES.map((m) => `<option>${esc(m)}</option>`).join('')}</select></div>
+        <select id="mgName"><option value="">Sense nom</option>${mgList().map((m) => `<option ${m === gameName ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></div>
       ${rows}
       <div class="chips-row" style="margin-top:14px">
         <button class="pill" type="button" data-preset="clear">Tot a zero</button>
@@ -643,7 +797,7 @@ async function loadPhoto(input, teams) {
 function settingsModal(tab = 'teams') {
   const draft = clone(S().config);
   const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
-  const tabs = { teams: 'Equips', board: 'Tauler', cards: 'Cartes', rules: 'Regles', sounds: 'Sons', game: 'Partida' };
+  const tabs = { teams: 'Equips', board: 'Tauler', cards: 'Cartes', rules: 'Regles', minigames: 'Minijocs', sounds: 'Sons', game: 'Partida' };
   const soundsHTML = () => `<p class="note">Escolteu cada so amb el botó. Els que no us agradin, els podeu apagar; es guarda al moment en aquest ordinador.</p>
     <label class="field"><span>Volum general</span><input type="range" id="vol" data-vol min="0" max="100" value="${Math.round(getVolume() * 100)}"></label>
     <div class="snd-list">${Object.entries(SOUNDS).map(([k, s]) => `<div class="snd">
@@ -716,7 +870,16 @@ function settingsModal(tab = 'teams') {
     <p class="muted">Torna a posar el tauler i les cartes d'exemple (perdreu els que hàgiu escrit).</p>
     <button class="btn" type="button" data-g="defaults">Recuperar el tauler i les cartes d'exemple</button>`;
 
-  const views = { teams: teamsHTML, board: boardHTML, cards: cardsHTML, rules: rulesHTML, sounds: soundsHTML, game: gameHTML };
+  draft.minigames = draft.minigames || MINIGAMES.slice();
+  const minigamesHTML = () => {
+    const played = S().mgPlayed || [];
+    return `<label class="check"><input type="checkbox" data-r="mgWheel" ${r.mgWheel !== false ? 'checked' : ''}> Fer servir la ruleta. Si ho desmarqueu, el botó «Minijoc» va directe a repartir cartes.</label>
+    <label class="field" style="margin-top:14px"><span>Minijocs de la ruleta (un per línia)</span>
+      <textarea data-mglist rows="10">${esc(draft.minigames.join('\n'))}</textarea></label>
+    <p class="muted">${played.length ? `Ja jugats en aquesta partida (no tornen a sortir): ${played.map(esc).join(', ')}.` : 'Encara no se n\'ha jugat cap en aquesta partida.'}</p>
+    ${played.length ? '<button class="btn" type="button" data-g="mgreset">Tornar-los tots a la ruleta</button>' : ''}`;
+  };
+  const views = { teams: teamsHTML, board: boardHTML, cards: cardsHTML, rules: rulesHTML, minigames: minigamesHTML, sounds: soundsHTML, game: gameHTML };
   let current = tab;
 
   openModal({
@@ -756,6 +919,7 @@ function settingsModal(tab = 'teams') {
         if (ds.ctext !== undefined) card(ds.ctext).text = el.value;
         if (ds.ceff !== undefined) card(ds.ceff).effect = el.value;
         if (ds.cval !== undefined) card(ds.cval).value = Number(el.value) || 0;
+        if (ds.mglist !== undefined) draft.minigames = el.value.split('\n').map((x) => x.trim()).filter(Boolean);
         if (ds.r !== undefined) {
           const key = ds.r;
           if (el.type === 'checkbox') r[key] = el.checked;
@@ -805,6 +969,7 @@ function settingsModal(tab = 'teams') {
           show();
           bodyEl.querySelector(`[data-ctext="${ds.cadd}:${draft.cards[ds.cadd].length - 1}"]`)?.focus();
         }
+        if (ds.g === 'mgreset') { G.updateConfig((st) => { st.mgPlayed = []; }); show(); toast('Tots els minijocs tornen a la ruleta.'); }
         if (ds.g === 'export') {
           const blob = new Blob([G.exportGame()], { type: 'application/json' });
           const a = document.createElement('a');

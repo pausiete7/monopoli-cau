@@ -776,6 +776,32 @@ input[type=color] { width: 54px; height: 46px; padding: 2px; border: 2px solid v
 .mg-team .sw { width: 38px; height: 38px; border-radius: 50%; background: var(--tc) center / cover; border: 3px solid #fff; box-shadow: 0 0 0 2px var(--tc); }
 .mg-hint { grid-column: 1 / -1; font-size: 14px; color: var(--ink-soft); min-height: 1.2em; }
 
+/* Ruleta del minijoc */
+.m-foot [hidden], .mg-side [hidden] { display: none !important; }
+.wheel-wrap { display: grid; grid-template-columns: auto minmax(240px, 1fr); gap: 28px; align-items: center; }
+.wheel { position: relative; width: min(440px, 58vh, 48vw); aspect-ratio: 1; }
+.wheel svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 14px 24px rgba(20, 16, 60, .35)); }
+.wheel svg text { fill: #fff; font: 800 16px var(--f-display); paint-order: stroke; stroke: rgba(0, 0, 0, .25); stroke-width: 3px; }
+.wheel svg text.hub { fill: var(--gold); font-size: 15px; font-weight: 900; stroke: none; }
+.wheel-pointer {
+  position: absolute; z-index: 1; top: -10px; left: 50%;
+  width: 0; height: 0; transform: translateX(-50%);
+  border-left: 20px solid transparent; border-right: 20px solid transparent; border-top: 40px solid var(--gold);
+  filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(0 6px 8px rgba(0, 0, 0, .35));
+}
+.mg-side { display: flex; flex-direction: column; gap: 16px; }
+.mg-result { font-size: 18px; color: var(--ink-soft); min-height: 2.4em; }
+.mg-result b { display: block; margin-top: 4px; font: 900 clamp(30px, 3.6vw, 52px)/1.02 var(--f-display); color: var(--ink); }
+.mg-result.pop b { animation: mgPop .6s var(--ease-spring); }
+@keyframes mgPop { from { transform: scale(.5); opacity: 0; } to { transform: none; opacity: 1; } }
+.mg-timer { font: 900 clamp(70px, 9vw, 128px)/1 var(--f-display); font-variant-numeric: tabular-nums; color: var(--ink); }
+.mg-timer.hurry { color: var(--bad); animation: mgBeat 1s ease-in-out infinite; }
+.mg-timer.done { color: var(--bad); animation: mgPop .5s var(--ease-spring); }
+@keyframes mgBeat { 50% { transform: scale(1.08); } }
+#mgHand option.played { color: var(--ink-soft); }
+@media (max-width: 860px) { .wheel-wrap { grid-template-columns: 1fr; justify-items: center; } }
+@media (prefers-reduced-motion: reduce) { .mg-result.pop b, .mg-timer.hurry, .mg-timer.done { animation: none; } }
+
 .deed {
   width: 290px;
   flex: none;

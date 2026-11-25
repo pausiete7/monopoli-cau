@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS } from './data.js?v=1795559824';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795606375';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -53,6 +53,8 @@ function migrate() {
   state.config.rules = { ...RULES, ...state.config.rules };
   if (state.config.rules.badName === 'Mal Rotllo') state.config.rules.badName = RULES.badName;
   state.config.groups = state.config.groups || clone(GROUPS);
+  state.config.minigames = state.config.minigames || clone(MINIGAMES);
+  state.mgPlayed = state.mgPlayed || [];
   // la cantonada de la Multa ara és el Pàrquing (amb el pot de multes)
   const per = state.config.board.length / 4;
   state.config.board.forEach((s, i) => {
@@ -68,7 +70,7 @@ function migrate() {
 }
 
 export function defaultConfig() {
-  return { board: clone(BOARD), cards: clone(CARDS), rules: clone(RULES), groups: clone(GROUPS) };
+  return { board: clone(BOARD), cards: clone(CARDS), rules: clone(RULES), groups: clone(GROUPS), minigames: clone(MINIGAMES) };
 }
 
 export function newGame(config = state?.config || defaultConfig(), teams = state?.teams || TEAMS) {
@@ -578,6 +580,9 @@ export function minigame(dist, gameName) {
     parts.push(`${name(t)} ${Math.abs(n)} ${Math.abs(n) > 1 ? 'cartes' : 'carta'} de ${dn}`);
   });
   log(`Minijoc${gameName ? ` «${gameName}»` : ''}: ${parts.join('; ') || 'ningú agafa cartes'}.`, 'info');
+  // els minijocs ja jugats no tornen a sortir a la ruleta (fins que s'hagin jugat tots)
+  state.mgPlayed = state.mgPlayed || [];
+  if (gameName && !state.mgPlayed.includes(gameName)) state.mgPlayed.push(gameName);
   save();
 }
 

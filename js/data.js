@@ -118,6 +118,7 @@ export const RULES = {
   stationRent: [30, 60, 120, 200],
   parkingPot: true, // les multes (cartes, reparacions, sortir de la presó) van al pot del Pàrquing
   potStart: 0, // diners amb què comença el pot a cada partida
+  mgWheel: true, // «Minijoc» obre la ruleta; si no, va directe a repartir cartes
   currency: '€',
   tilt: true,
   chanceDeck: 'mix', // mix | good | bad
