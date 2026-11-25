@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611882';
-import { photoOf, initials } from './util.js?v=1795611882';
-import { deckName } from './data.js?v=1795611882';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795612695';
+import { photoOf, initials } from './util.js?v=1795612695';
+import { deckName } from './data.js?v=1795612695';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1274,7 +1274,11 @@ function loop(now) {
   // el peó de qui li toca es balanceja
   pawns.forEach((p, k) => {
     const inner = p.userData.inner;
-    if (k === turnTeam && !animating.has(k)) {
+    if (k === crownTeam && !animating.has(k) && !dying.has(k)) {
+      // el guanyador sura i gira amb la corona
+      inner.position.y = 0.42 + Math.sin(now / 500) * 0.07;
+      inner.rotation.y += dt * 1.1;
+    } else if (k === turnTeam && !animating.has(k)) {
       inner.position.y = 0.05 + Math.abs(Math.sin(now / 380)) * 0.12;
       inner.rotation.y += dt * 1.4;
     } else if (!animating.has(k)) {
@@ -1455,6 +1459,7 @@ export function refresh(animateHouses = false) {
     if (!animating.has(k) && !dying.has(k)) p.position.copy(pawnTarget(k));
   });
   turnTeam = state.turn;
+  syncCrown();
   syncCages();
   syncPot(animateHouses || potAnimNext);
   potAnimNext = false;
@@ -2315,6 +2320,120 @@ export async function bankruptFx(k, squares = []) {
   // la fitxa s'esvaeix
   if (p) await tween(380, (t) => { p.scale.setScalar(1 - t); }, ease.inOut);
   finish();
+}
+
+// ---------- Guanyador (E9) ----------
+// Sense moure la càmera: el tauler s'enfosqueix, un focus il·lumina la fitxa guanyadora, que s'aixeca i
+// gira, li cau una corona daurada i esclaten focs artificials del color de l'equip.
+let crown = null;
+let crownTeam = -1;
+function makeCrown() {
+  const g = new THREE.Group();
+  const gold = new THREE.MeshStandardMaterial({ color: 0xFFC83D, metalness: 0.85, roughness: 0.25, emissive: 0x3a2400, emissiveIntensity: 0.35 });
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.13, 0.08, 32, 1, true), gold);
+  band.material.side = THREE.DoubleSide;
+  band.castShadow = true;
+  g.add(band);
+  const gems = [0xE8473B, 0x2D7FF9, 0x2E9E5B, 0xE8473B, 0x2D7FF9];
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2;
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 8), gold);
+    spike.position.set(Math.cos(a) * 0.14, 0.085, Math.sin(a) * 0.14);
+    g.add(spike);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), gold);
+    ball.position.set(Math.cos(a) * 0.14, 0.145, Math.sin(a) * 0.14);
+    g.add(ball);
+    const gem = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshStandardMaterial({ color: gems[k], roughness: 0.2, emissive: gems[k], emissiveIntensity: 0.3 }));
+    gem.position.set(Math.cos(a + Math.PI / 5) * 0.142, 0, Math.sin(a + Math.PI / 5) * 0.142);
+    g.add(gem);
+  }
+  return g;
+}
+const CROWN_Y = 0.62;
+function syncCrown() {
+  const w = state.winner;
+  const want = w !== undefined && w !== null && pawns[w] && !team(w).bankrupt ? w : -1;
+  if (want === crownTeam) return;
+  if (crown) { crown.parent?.remove(crown); crown = null; }
+  if (crownTeam >= 0 && pawns[crownTeam]?.userData.sprite) pawns[crownTeam].userData.sprite.position.y = 0.85;
+  crownTeam = want;
+  if (want < 0) return;
+  crown = makeCrown();
+  crown.position.y = CROWN_Y;
+  pawns[want].userData.inner.add(crown);
+  if (pawns[want].userData.sprite) pawns[want].userData.sprite.position.y = 1.05;
+}
+function firework(x, z, color, delay) {
+  setTimeout(() => {
+    if (!scene) return;
+    const geo = new THREE.SphereGeometry(0.045, 8, 6);
+    const y0 = 0.2;
+    const top = 2.2 + Math.random() * 1.2;
+    const rocket = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xFFE9A0 }));
+    rocket.position.set(x, y0, z);
+    scene.add(rocket);
+    tween(650, (t) => { rocket.position.y = y0 + (top - y0) * ease.out(t); }, ease.linear).then(() => {
+      scene.remove(rocket);
+      sfxHook?.('firework');
+      const n = 26;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2;
+        const el = (Math.random() - 0.3) * 1.2;
+        const col = k % 3 === 0 ? 0xFFD84D : color;
+        const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true }));
+        m.position.set(x, top, z);
+        scene.add(m);
+        const v = new THREE.Vector3(Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el)).multiplyScalar(1.1 + Math.random() * 0.4);
+        tween(1100, (t) => {
+          m.position.set(x + v.x * t, top + v.y * t - 1.2 * t * t, z + v.z * t);
+          m.material.opacity = 1 - t;
+          const s = 1 - t * 0.6;
+          m.scale.setScalar(s);
+        }, ease.out).then(() => { scene.remove(m); m.material.dispose(); });
+      }
+    });
+  }, delay);
+}
+export async function winnerFx(k) {
+  if (!scene) return;
+  syncCrown();
+  const p = pawns[k];
+  if (!p || reduced()) return;
+  const color = new THREE.Color(team(k).color);
+  // el tauler s'enfosqueix una estona
+  const l = L() + 0.6;
+  const dim = new THREE.Mesh(new THREE.PlaneGeometry(l, l), new THREE.MeshBasicMaterial({ color: 0x0A0820, transparent: true, opacity: 0, depthWrite: false }));
+  dim.rotation.x = -Math.PI / 2;
+  dim.position.y = 0.012;
+  dim.renderOrder = 2;
+  scene.add(dim);
+  // focus sobre la fitxa
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.6, 5, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xFFF1B8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  beam.position.set(p.position.x, 2.5, p.position.z);
+  scene.add(beam);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(0.6, 40), new THREE.MeshBasicMaterial({ color: 0xFFF1B8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(p.position.x, 0.02, p.position.z);
+  scene.add(pool);
+  tween(700, (t) => { dim.material.opacity = 0.55 * t; beam.material.opacity = 0.22 * t; pool.material.opacity = 0.35 * t; }, ease.out);
+  // la corona cau damunt la fitxa
+  if (crown) {
+    crown.position.y = CROWN_Y + 2.4;
+    setTimeout(() => tween(800, (t) => { crown.position.y = CROWN_Y + 2.4 * (1 - t); }, ease.bounce).then(() => { sparkle(p.position.x, p.position.z, 24, 1.4); sfxHook?.('hotel'); }), 600);
+  }
+  // focs artificials al voltant del tauler
+  const h = L() / 2;
+  const spots = [[-h * 0.6, -h * 0.4], [h * 0.6, -h * 0.4], [0, -h * 0.7], [-h * 0.5, h * 0.3], [h * 0.5, h * 0.3], [0, 0]];
+  for (let j = 0; j < 9; j++) {
+    const s = spots[j % spots.length];
+    firework(s[0] + rnd3(0.6), s[1] + rnd3(0.6), color, 900 + j * 520);
+  }
+  // l'ambient torna a la normalitat
+  setTimeout(() => {
+    tween(1200, (t) => { dim.material.opacity = 0.55 * (1 - t); beam.material.opacity = 0.22 * (1 - t); pool.material.opacity = 0.35 * (1 - t); }, ease.inOut)
+      .then(() => { [dim, beam, pool].forEach((m) => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); }); });
+  }, 6500);
+  await new Promise((r) => setTimeout(r, 1600));
 }
 
 // qui cau al Pàrquing s'emporta el pot

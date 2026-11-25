@@ -164,6 +164,11 @@ export const SOUNDS = {
     when: 'Quan cau una casa',
     play: () => { noise(0, 0.35, { gain: 0.1, type: 'lowpass', freq: 1200, to: 300 }); },
   },
+  firework: {
+    name: 'Focs artificials',
+    when: 'Quan es proclama el guanyador',
+    play: () => { noise(0, 0.28, { gain: 0.2, type: 'lowpass', freq: 900, to: 180 }); for (let k = 0; k < 6; k++) noise(0.1 + k * 0.05, 0.03, { gain: 0.07, type: 'highpass', freq: 3200 }); },
+  },
   hotel: {
     name: 'Hotel (pop)',
     when: 'Quan 4 cases es converteixen en hotel',
