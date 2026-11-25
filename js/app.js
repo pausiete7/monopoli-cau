@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795611007';
+import * as G from './engine.js?v=1795611063';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, renderTop, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795611007';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795611007';
-import * as S3 from './scene.js?v=1795611007';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795611007';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795611007';
+} from './board.js?v=1795611063';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795611063';
+import * as S3 from './scene.js?v=1795611063';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795611063';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795611063';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1222,12 +1222,12 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-    if (dlg.open && e.target.matches('input, textarea')) return;
+    if (dlg.open && e.target.matches?.('input, textarea')) return;
     e.preventDefault();
     doUndo();
     return;
   }
-  if (dlg.open || e.target.matches('input, textarea, select')) return;
+  if (dlg.open || e.target.matches?.('input, textarea, select')) return;
   if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey) { changeView(); return; }
   if (busyNow()) return;
   const n = Number(e.key);
