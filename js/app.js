@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795606375';
+import * as G from './engine.js?v=1795607285';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795606375';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795606375';
-import * as S3 from './scene.js?v=1795606375';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795606375';
-import { EFFECTS, MINIGAMES, GROUPS, deckName } from './data.js?v=1795606375';
+} from './board.js?v=1795607285';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795607285';
+import * as S3 from './scene.js?v=1795607285';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795607285';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795607285';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -796,7 +796,7 @@ async function loadPhoto(input, teams) {
 
 function settingsModal(tab = 'teams') {
   const draft = clone(S().config);
-  const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
+  const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color, token: t.token }));
   const tabs = { teams: 'Equips', board: 'Tauler', cards: 'Cartes', rules: 'Regles', minigames: 'Minijocs', sounds: 'Sons', game: 'Partida' };
   const soundsHTML = () => `<p class="note">Escolteu cada so amb el botó. Els que no us agradin, els podeu apagar; es guarda al moment en aquest ordinador.</p>
     <label class="field"><span>Volum general</span><input type="range" id="vol" data-vol min="0" max="100" value="${Math.round(getVolume() * 100)}"></label>
@@ -812,6 +812,7 @@ function settingsModal(tab = 'teams') {
         <input type="file" accept="image/*" data-photo="${k}" aria-label="Foto de ${esc(t.name)}"></label>
       <div class="field" style="margin:0"><span>Nom</span><input type="text" data-tname="${k}" value="${esc(t.name)}" maxlength="28"></div>
       <div class="row"><input type="color" data-tcolor="${k}" value="${t.color}" aria-label="Color">${photoOf(t.id) ? `<button class="btn btn-ghost" type="button" data-nophoto="${k}">Treure foto</button>` : ''}</div>
+      ${tokenPick(k, t.token)}
     </div>`).join('')}</div>
     <h3 class="label" style="margin-top:18px">Fotos del tauler</h3>
     ${boardPhotosHTML()}`;
@@ -956,6 +957,7 @@ function settingsModal(tab = 'teams') {
         const el = e.target.closest('button');
         if (!el) return;
         const ds = el.dataset;
+        if (ds.ttoken !== undefined) { const [k, key] = ds.ttoken.split(':'); teams[k].token = key; sfx.click(); show(); }
         if (ds.nophoto !== undefined) { setPhoto(teams[ds.nophoto].id, ''); show(); full(); }
         if (ds.noboardphoto !== undefined) { setPhoto(ds.noboardphoto, ''); show(); buildBoard(); full(); }
         if (ds.cdel !== undefined) {
@@ -981,7 +983,7 @@ function settingsModal(tab = 'teams') {
         if (ds.g === 'new') {
           if (!confirm('Començar una partida nova? Es perdrà la partida actual (abans la podeu descarregar).')) return;
           G.state.config = clone(draft);
-          G.state.teams.forEach((t, k) => { t.name = teams[k].name; t.color = teams[k].color; });
+          G.state.teams.forEach((t, k) => { t.name = teams[k].name; t.color = teams[k].color; t.token = teams[k].token; });
           G.newGame(draft, S().teams);
           buildBoard();
           dlg.close();
@@ -1004,7 +1006,7 @@ function settingsModal(tab = 'teams') {
         if (!draft.cards.good.length || !draft.cards.bad.length) { toast('Cada mall ha de tenir com a mínim una carta amb text.'); return; }
         G.updateConfig((st) => {
           st.config = draft;
-          st.teams.forEach((t, k) => { t.name = teams[k].name.trim() || t.name; t.color = teams[k].color; });
+          st.teams.forEach((t, k) => { t.name = teams[k].name.trim() || t.name; t.color = teams[k].color; t.token = teams[k].token; });
         });
         dlg.close();
         buildBoard();
@@ -1016,20 +1018,33 @@ function settingsModal(tab = 'teams') {
 }
 
 // ---------- Preparar la partida ----------
+// icones per triar la fitxa 3D de cada equip
+const TOKEN_ICONS = {
+  foguera: '<path d="M12 3c3 4 5 6 3 10-1 2-5 2-6 0-1-3 2-5 3-10Z"/><path d="M4 20l16-4M4 16l16 4"/>',
+  cantimplora: '<circle cx="12" cy="14" r="7"/><path d="M10 7V4h4v3"/><path d="M5 10c2-4 12-4 14 0"/>',
+  tenda: '<path d="M3 20 12 4l9 16Z"/><path d="M9 20l3-6 3 6"/>',
+  bruixola: '<circle cx="12" cy="12" r="9"/><path d="M12 5l2.5 7-2.5 7-2.5-7Z"/>',
+  bota: '<path d="M7 3h6v10l7 2v5H5v-7Z"/><path d="M5 17h15"/>',
+  fanal: '<path d="M8 8h8v10H8Z"/><path d="M7 18h10v3H7ZM9 8l3-4 3 4M12 11v4"/>',
+  peo: '<circle cx="12" cy="6" r="3"/><path d="M10 9h4l1 9H9ZM7 21h10"/>',
+};
+const tokenPick = (k, cur) => `<div class="tok-pick" role="group" aria-label="Fitxa">${Object.entries(TOKENS).map(([key, label]) => `<button type="button" data-ttoken="${k}:${key}" aria-pressed="${key === (cur || 'peo')}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24">${TOKEN_ICONS[key]}</svg></button>`).join('')}</div>`;
+
 function setupModal() {
   const r = G.rules();
-  const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color }));
+  const teams = S().teams.map((t) => ({ id: t.id, name: t.name, color: t.color, token: t.token }));
   const vals = {
     startMoney: r.startMoney, goSalary: r.goSalary,
     jailPay: r.jailPay, jailFine: r.jailFine, jailRoll: r.jailRoll, jailExitRoll: r.jailExitRoll, jailMaxTurns: r.jailMaxTurns,
     potStart: r.potStart || 0,
   };
-  const body = () => `<p class="lead">Poseu el nom i el color de cada equip i, si voleu, una foto. Després, els diners.</p>
+  const body = () => `<p class="lead">Poseu el nom, el color i la fitxa de cada equip i, si voleu, una foto. Després, els diners.</p>
     <div class="cfg-grid setup-grid">${teams.map((t, k) => `<div class="cfg-team" style="--tc:${t.color}">
       <label class="cfg-photo" style="${avatarStyle(t)}" title="Posar una foto">${photoOf(t.id) ? '' : icon('camera')}
         <input type="file" accept="image/*" data-photo="${k}" aria-label="Foto de l'equip ${k + 1}"></label>
       <div class="field" style="margin:0"><span>Equip ${k + 1}</span><input type="text" data-tname="${k}" value="${esc(t.name)}" maxlength="28"></div>
       <input type="color" data-tcolor="${k}" value="${t.color}" aria-label="Color de l'equip ${k + 1}">
+      ${tokenPick(k, t.token)}
     </div>`).join('')}</div>
     <div class="cfg-rules" style="margin-top:18px">
       <label class="field"><span>Diners per començar</span><input type="number" data-r="startMoney" value="${vals.startMoney}" step="50" min="0"></label>
@@ -1073,6 +1088,8 @@ function setupModal() {
         } catch (err) { toast(err.message); }
       });
       box.addEventListener('click', (e) => {
+        const tk = e.target.closest('[data-ttoken]');
+        if (tk) { const [k, key] = tk.dataset.ttoken.split(':'); teams[k].token = key; sfx.click(); show(); return; }
         const b = e.target.closest('[data-noboardphoto]');
         if (b) { setPhoto(b.dataset.noboardphoto, ''); show(); buildBoard(); full(); }
       });

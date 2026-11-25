@@ -776,6 +776,17 @@ input[type=color] { width: 54px; height: 46px; padding: 2px; border: 2px solid v
 .mg-team .sw { width: 38px; height: 38px; border-radius: 50%; background: var(--tc) center / cover; border: 3px solid #fff; box-shadow: 0 0 0 2px var(--tc); }
 .mg-hint { grid-column: 1 / -1; font-size: 14px; color: var(--ink-soft); min-height: 1.2em; }
 
+/* Triar la fitxa 3D de cada equip */
+.tok-pick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.tok-pick button {
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border: 2px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink-soft);
+  transition: transform .15s var(--ease-spring), background .15s;
+}
+.tok-pick button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.tok-pick button:hover { transform: translateY(-2px); }
+.tok-pick button[aria-pressed=true] { background: var(--tc, var(--ink)); border-color: var(--tc, var(--ink)); color: #fff; }
+
 /* Ruleta del minijoc */
 .m-foot [hidden], .mg-side [hidden] { display: none !important; }
 .wheel-wrap { display: grid; grid-template-columns: auto minmax(240px, 1fr); gap: 28px; align-items: center; }

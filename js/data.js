@@ -99,11 +99,22 @@ export const CARDS = {
   ],
 };
 
+// Fitxes 3D que pot triar cada equip
+export const TOKENS = {
+  foguera: 'Foguera',
+  cantimplora: 'Cantimplora',
+  tenda: 'Tenda',
+  bruixola: 'Brúixola',
+  bota: 'Bota',
+  fanal: 'Fanal',
+  peo: 'Peó',
+};
+
 export const TEAMS = [
-  { id: 't1', name: 'Equip Foc', color: '#E4572E' },
-  { id: 't2', name: 'Equip Aigua', color: '#2D7FF9' },
-  { id: 't3', name: 'Equip Terra', color: '#2E9E5B' },
-  { id: 't4', name: 'Equip Vent', color: '#9B5DE5' },
+  { id: 't1', name: 'Equip Foc', color: '#E4572E', token: 'foguera' },
+  { id: 't2', name: 'Equip Aigua', color: '#2D7FF9', token: 'cantimplora' },
+  { id: 't3', name: 'Equip Terra', color: '#2E9E5B', token: 'tenda' },
+  { id: 't4', name: 'Equip Vent', color: '#9B5DE5', token: 'bruixola' },
 ];
 
 export const RULES = {

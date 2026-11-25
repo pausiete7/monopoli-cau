@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795606375';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795607285';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -66,7 +66,7 @@ function migrate() {
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
   state.started ??= state.log.length > 0;
-  state.teams.forEach((t) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; });
+  state.teams.forEach((t, k) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; t.token ??= TEAMS[k % TEAMS.length].token; });
 }
 
 export function defaultConfig() {
@@ -78,7 +78,7 @@ export function newGame(config = state?.config || defaultConfig(), teams = state
     v: 1,
     config: clone(config),
     teams: teams.map((t) => ({
-      id: t.id, name: t.name, color: t.color,
+      id: t.id, name: t.name, color: t.color, token: t.token,
       money: config.rules.startMoney, pos: 0,
       jail: false, jailTurns: 0, jailCards: 0, skip: 0, extra: 0, bankrupt: false,
     })),
@@ -105,6 +105,7 @@ export function startGame({ teams, rules: r }) {
   state.teams.forEach((t, k) => {
     t.name = teams[k].name.trim() || t.name;
     t.color = teams[k].color;
+    if (teams[k].token) t.token = teams[k].token;
     t.money = state.config.rules.startMoney;
   });
   state.pot = state.config.rules.parkingPot ? Math.max(0, Number(state.config.rules.potStart) || 0) : 0;

@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795606375';
-import { photoOf, initials } from './util.js?v=1795606375';
-import { deckName } from './data.js?v=1795606375';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795607285';
+import { photoOf, initials } from './util.js?v=1795607285';
+import { deckName } from './data.js?v=1795607285';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -762,7 +762,98 @@ function makePawn(color) {
   const inner = new THREE.Group();
   inner.add(body, head);
   g.add(inner);
-  g.userData = { inner, mat };
+  g.userData = { inner, mat, kind: 'peo' };
+  return g;
+}
+
+// ---------- Fitxes temàtiques (cada equip tria la seva) ----------
+// Totes tenen una peana del color de l'equip; la figura també porta el color on té sentit.
+const tokMats = {};
+const tokMat = (key, opts) => (tokMats[key] = tokMats[key] || new THREE.MeshStandardMaterial(opts));
+function makeToken(kind, color) {
+  if (!kind || kind === 'peo') return makePawn(color);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.05 });
+  const dark = tokMat('dark', { color: 0x2A2440, roughness: 0.6 });
+  const metal = tokMat('metal', { color: 0xC9CDDA, metalness: 0.85, roughness: 0.3 });
+  const gold = tokMat('gold', { color: 0xFFC83D, metalness: 0.8, roughness: 0.3 });
+  const wood = tokMat('wood', { color: 0x8B5A2B, roughness: 0.8 });
+  const white = tokMat('white', { color: 0xF7F7FB, roughness: 0.5 });
+  const g = new THREE.Group();
+  const inner = new THREE.Group();
+  g.add(inner);
+  const add = (geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+    const o = new THREE.Mesh(geo, m);
+    o.position.set(x, y, z);
+    o.rotation.set(rx, ry, rz);
+    o.castShadow = true;
+    inner.add(o);
+    return o;
+  };
+  // peana
+  add(new THREE.CylinderGeometry(0.2, 0.215, 0.06, 40), mat, 0, 0.03);
+  add(new THREE.TorusGeometry(0.2, 0.012, 8, 40), gold, 0, 0.062, 0, Math.PI / 2);
+  const flames = [];
+  if (kind === 'tenda') {
+    const s = new THREE.Shape();
+    s.moveTo(-0.19, 0); s.lineTo(0.19, 0); s.lineTo(0, 0.32); s.closePath();
+    const geo = new THREE.ExtrudeGeometry(s, { depth: 0.3, bevelEnabled: false });
+    geo.translate(0, 0, -0.15);
+    add(geo, mat, 0, 0.06);
+    const d = new THREE.Shape();
+    d.moveTo(-0.07, 0); d.lineTo(0.07, 0); d.lineTo(0, 0.16); d.closePath();
+    add(new THREE.ShapeGeometry(d), dark, 0, 0.061, 0.152);
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), metal, 0, 0.44);
+    const f = new THREE.Shape();
+    f.moveTo(0, 0); f.lineTo(0.1, -0.03); f.lineTo(0, -0.06); f.closePath();
+    add(new THREE.ShapeGeometry(f), gold, 0.004, 0.52).material.side = THREE.DoubleSide;
+  } else if (kind === 'cantimplora') {
+    add(new THREE.CylinderGeometry(0.15, 0.15, 0.1, 40), mat, 0, 0.24, 0, Math.PI / 2);
+    add(new THREE.TorusGeometry(0.15, 0.022, 10, 40), dark, 0, 0.24);
+    add(new THREE.CircleGeometry(0.1, 32), tokMat('shine', { color: 0xffffff, transparent: true, opacity: 0.18, roughness: 0.2 }), 0, 0.24, 0.052);
+    add(new THREE.CylinderGeometry(0.035, 0.045, 0.07, 16), metal, 0, 0.42);
+    add(new THREE.CylinderGeometry(0.05, 0.05, 0.045, 16), dark, 0, 0.47);
+    add(new THREE.TorusGeometry(0.17, 0.012, 6, 30, Math.PI * 0.9), wood, 0, 0.26, -0.03, 0, 0, Math.PI * 0.05);
+  } else if (kind === 'bruixola') {
+    add(new THREE.CylinderGeometry(0.035, 0.06, 0.1, 16), metal, 0, 0.1);
+    add(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 44), mat, 0, 0.29, 0, Math.PI / 2);
+    add(new THREE.CircleGeometry(0.13, 40), white, 0, 0.29, 0.031);
+    const needle = (up, m) => {
+      const s = new THREE.Shape();
+      s.moveTo(-0.025, 0); s.lineTo(0, up ? 0.11 : -0.11); s.lineTo(0.025, 0); s.closePath();
+      add(new THREE.ShapeGeometry(s), m, 0, 0.29, 0.033);
+    };
+    needle(true, tokMat('red', { color: 0xE8473B, roughness: 0.4 }));
+    needle(false, tokMat('grey', { color: 0x8A8FA8, roughness: 0.4 }));
+    add(new THREE.CircleGeometry(0.014, 12), dark, 0, 0.29, 0.034);
+    add(new THREE.TorusGeometry(0.035, 0.012, 8, 20), gold, 0, 0.47);
+  } else if (kind === 'bota') {
+    add(new THREE.BoxGeometry(0.13, 0.25, 0.14), mat, -0.04, 0.22, 0);
+    add(new THREE.BoxGeometry(0.24, 0.1, 0.15), mat, 0.03, 0.12, 0);
+    add(new THREE.CylinderGeometry(0.075, 0.075, 0.15, 20), mat, 0.15, 0.12, 0, Math.PI / 2);
+    add(new THREE.BoxGeometry(0.33, 0.035, 0.17), dark, 0.035, 0.078, 0);
+    add(new THREE.BoxGeometry(0.15, 0.045, 0.16), dark, -0.04, 0.355, 0);
+    for (let k = 0; k < 3; k++) add(new THREE.BoxGeometry(0.008, 0.012, 0.1), white, 0.03 - k * 0.025, 0.2 + k * 0.045, 0.072, 0, Math.PI / 2, 0);
+    inner.children.slice(2).forEach((o) => { o.rotation.y -= 0.6; o.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.6); });
+  } else if (kind === 'fanal') {
+    add(new THREE.BoxGeometry(0.2, 0.04, 0.2), mat, 0, 0.08);
+    add(new THREE.CylinderGeometry(0.075, 0.075, 0.18, 20), tokMat('glow', { color: 0xFFE38A, emissive: 0xFFB020, emissiveIntensity: 1.1, roughness: 0.3 }), 0, 0.19);
+    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([x, z]) => add(new THREE.BoxGeometry(0.02, 0.2, 0.02), mat, x * 0.085, 0.19, z * 0.085));
+    add(new THREE.ConeGeometry(0.15, 0.11, 4), mat, 0, 0.345, 0, 0, Math.PI / 4);
+    add(new THREE.TorusGeometry(0.05, 0.012, 8, 20), metal, 0, 0.44);
+  } else if (kind === 'foguera') {
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI;
+      const log = add(new THREE.CylinderGeometry(0.028, 0.03, 0.32, 10), wood, 0, 0.12, 0, 0, a, 1.1);
+      log.rotation.order = 'YXZ';
+    }
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * Math.PI * 2;
+      add(new THREE.DodecahedronGeometry(0.035, 0), tokMat('stone', { color: 0x9A96A8, roughness: 0.9 }), Math.cos(a) * 0.16, 0.085, Math.sin(a) * 0.16, a, a * 2, 0);
+    }
+    flames.push(add(new THREE.ConeGeometry(0.085, 0.27, 16), tokMat('flame', { color: 0xFF7A1A, emissive: 0xFF5A00, emissiveIntensity: 1, roughness: 0.4 }), 0, 0.27));
+    flames.push(add(new THREE.ConeGeometry(0.05, 0.17, 14), tokMat('flame2', { color: 0xFFE066, emissive: 0xFFC400, emissiveIntensity: 1.2, roughness: 0.4 }), 0, 0.23, 0.02));
+  }
+  g.userData = { inner, mat, kind, flames };
   return g;
 }
 
@@ -1081,6 +1172,26 @@ function placeCamera(d, fx, fz, k) {
 }
 
 export const debugFit = () => { fit(); return baseDist; };
+// només per a proves: renderitza des d'una càmera propera i torna la imatge
+export function debugShot(px, py, pz, tx, ty, tz, w = 900, h = 520) {
+  const cam = new THREE.PerspectiveCamera(30, w / h, 0.1, 100);
+  cam.position.set(px, py, pz);
+  cam.lookAt(tx, ty, tz);
+  const rt = new THREE.WebGLRenderTarget(w, h, { samples: 4 });
+  rt.texture.colorSpace = THREE.SRGBColorSpace;
+  renderer.setRenderTarget(rt);
+  renderer.render(scene, cam);
+  const buf = new Uint8Array(w * h * 4);
+  renderer.readRenderTargetPixels(rt, 0, 0, w, h, buf);
+  renderer.setRenderTarget(null);
+  rt.dispose();
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const id = c.getContext('2d').createImageData(w, h);
+  for (let y = 0; y < h; y++) id.data.set(buf.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
+  c.getContext('2d').putImageData(id, 0, 0);
+  return c.toDataURL();
+}
 function resize() {
   const w = container.clientWidth;
   const h = container.clientHeight;
@@ -1104,7 +1215,15 @@ function loop(now) {
       inner.rotation.y += dt * 1.4;
     } else if (!animating.has(k)) {
       inner.position.y += (0 - inner.position.y) * 0.2;
+      // quan no li toca, la fitxa torna a mirar cap a la càmera
+      const rest = Math.round(inner.rotation.y / (Math.PI * 2)) * Math.PI * 2;
+      inner.rotation.y += (rest - inner.rotation.y) * 0.08;
     }
+    // el foc de la foguera balla
+    p.userData.flames?.forEach((f, j) => {
+      const s = 1 + Math.sin(now / (90 + j * 37) + k) * 0.12 + Math.sin(now / 53 + j) * 0.05;
+      f.scale.set(1 / Math.sqrt(s), s, 1 / Math.sqrt(s));
+    });
   });
   updateHalo(now);
   // les gàbies segueixen la seva fitxa
@@ -1238,8 +1357,14 @@ export function refresh(animateHouses = false) {
   // peons
   state.teams.forEach((t, k) => {
     let p = pawns[k];
+    // si l'equip ha canviat de fitxa, es fa de nou
+    if (p && p.userData.kind !== (t.token || 'peo')) {
+      scene.remove(p);
+      p = null;
+      avatarKeys[k] = '';
+    }
     if (!p) {
-      p = makePawn(t.color);
+      p = makeToken(t.token, t.color);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ depthWrite: false }));
       sprite.scale.set(0.42, 0.42, 1);
       sprite.position.y = 0.85;
