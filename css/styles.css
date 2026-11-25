@@ -70,11 +70,13 @@ button:disabled { cursor: not-allowed; }
 .top {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: var(--panel) minmax(0, 1fr) var(--panel);
+  /* les eines ocupen el que necessiten: així mai no trepitgen l'ordre de torns */
+  grid-template-columns: minmax(auto, var(--panel)) minmax(0, 1fr) auto;
   align-items: center;
   padding: 0 18px;
   gap: 12px;
 }
+@media (max-width: 1500px) { .tools .icon-btn-text span { display: none; } .tools .icon-btn-text { padding: 0; width: 46px; justify-content: center; } }
 .round {
   display: inline-flex;
   align-items: baseline;
