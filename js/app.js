@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795611063';
+import * as G from './engine.js?v=1795611223';
 import {
-  buildBoard, renderAll, renderCenter, renderTeams, renderSquares, renderTop, playFx, syncDisplay, isPlaying,
+  buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef,
-} from './board.js?v=1795611063';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795611063';
-import * as S3 from './scene.js?v=1795611063';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795611063';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795611063';
+} from './board.js?v=1795611223';
+import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795611223';
+import * as S3 from './scene.js?v=1795611223';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795611223';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795611223';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1107,13 +1107,6 @@ function setupModal() {
 }
 
 // ---------- Accions de la barra i del tauler ----------
-// vista de càmera: general, des de dalt o seguint la fitxa (botó o tecla V)
-function changeView() {
-  const v = S3.cycleView();
-  sfx.click();
-  toast(S3.VIEWS[v].name);
-  renderTop(isMuted());
-}
 async function doUndo() {
   if (busyNow()) return;
   if (G.undo()) {
@@ -1133,7 +1126,6 @@ function fullscreen() {
 
 const ACTIONS = {
   minigame: minigameModal,
-  view: changeView,
   money: () => moneyModal(),
   trade: tradeModal,
   auction: auctionPicker,
@@ -1201,7 +1193,7 @@ function restartModal() {
 }
 
 // accions que es poden fer encara que hi hagi una animació en marxa
-const ALWAYS = new Set(['mute', 'fullscreen', 'log', 'view']);
+const ALWAYS = new Set(['mute', 'fullscreen', 'log']);
 
 document.addEventListener('click', (e) => {
   if (dlg.contains(e.target)) return;
@@ -1228,7 +1220,6 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (dlg.open || e.target.matches?.('input, textarea, select')) return;
-  if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey) { changeView(); return; }
   if (busyNow()) return;
   const n = Number(e.key);
   if (n >= 1 && n <= 9 && G.state.phase === 'roll' && !G.state.queue.length && n <= G.rules().maxDie) {

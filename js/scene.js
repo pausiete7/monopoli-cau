@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611063';
-import { photoOf, initials } from './util.js?v=1795611063';
-import { deckName } from './data.js?v=1795611063';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795611223';
+import { photoOf, initials } from './util.js?v=1795611223';
+import { deckName } from './data.js?v=1795611223';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1046,30 +1046,6 @@ const camFocus = { x: 0, z: 0, k: 0 }; // on vol anar la càmera
 const camCur = { x: 0, z: 0, k: 0 }; // on és ara (s'hi acosta a poc a poc)
 let baseDist = 12;
 const ELEV = THREE.MathUtils.degToRad(58);
-// Vistes de càmera (E5): general, des de dalt i seguint la fitxa de qui li toca.
-// La càmera passa d'una a l'altra a poc a poc.
-export const VIEWS = {
-  general: { name: 'Vista general', elev: 58, follow: 0.35, zoom: 0.12 },
-  top: { name: 'Des de dalt', elev: 88.5, follow: 0.25, zoom: 0.08 },
-  follow: { name: 'Seguint la fitxa', elev: 47, follow: 1, zoom: 0.5 },
-};
-let view = 'general';
-try { if (VIEWS[localStorage.getItem('caupoli-view')]) view = localStorage.getItem('caupoli-view'); } catch { /* res */ }
-const viewDist = { general: 12, top: 12, follow: 12 };
-const viewCur = { elev: ELEV, follow: 0.35, zoom: 0.12, dist: 12 };
-const viewWant = () => ({ elev: THREE.MathUtils.degToRad(VIEWS[view].elev), follow: VIEWS[view].follow, zoom: VIEWS[view].zoom, dist: viewDist[view] });
-export const getView = () => view;
-export function setView(v) {
-  if (!VIEWS[v]) return;
-  view = v;
-  try { localStorage.setItem('caupoli-view', v); } catch { /* res */ }
-  if (reduced()) Object.assign(viewCur, viewWant());
-}
-export function cycleView() {
-  const keys = Object.keys(VIEWS);
-  setView(keys[(keys.indexOf(view) + 1) % keys.length]);
-  return view;
-}
 let turnTeam = -1;
 let lastTime = 0;
 
@@ -1234,40 +1210,30 @@ function fit() {
   pts.push(new THREE.Vector3(0, 0.55, -l));
   // el ventall de bitllets del pot surt per darrere del tauler: també ha de cabre
   if (state.config && parkingIndex() >= 0 && rules().parkingPot) pts.push(...potBounds());
-  // distància perquè hi càpiga tot, per a cada vista (cada una té la seva inclinació)
-  const distFor = (elev) => {
-    let lo = 4; let hi = 60;
-    for (let k = 0; k < 30; k++) {
-      const d = (lo + hi) / 2;
-      rawCamera(d, elev, camTarget.x, camTarget.z);
-      let ok = true;
-      for (const p of pts) {
-        const v = p.clone().project(camera);
-        if (Math.abs(v.x) > 0.99 || Math.abs(v.y) > 0.985) { ok = false; break; }
-      }
-      if (ok) hi = d; else lo = d;
+  let lo = 4; let hi = 60;
+  for (let k = 0; k < 30; k++) {
+    const d = (lo + hi) / 2;
+    placeCamera(d, 0, 0, 0);
+    let ok = true;
+    for (const p of pts) {
+      const v = p.clone().project(camera);
+      if (Math.abs(v.x) > 0.99 || Math.abs(v.y) > 0.985) { ok = false; break; }
     }
-    return hi;
-  };
-  Object.keys(VIEWS).forEach((v) => { viewDist[v] = distFor(THREE.MathUtils.degToRad(VIEWS[v].elev)); });
-  baseDist = viewDist.general;
-  if (!fitted) { Object.assign(viewCur, viewWant()); fitted = true; } else viewCur.dist = viewDist[view];
-  placeCamera(viewCur.dist, camCur.x, camCur.z, camCur.k);
+    if (ok) hi = d; else lo = d;
+  }
+  baseDist = hi;
+  placeCamera(baseDist, camCur.x, camCur.z, camCur.k);
 }
-let fitted = false;
 
-function rawCamera(dist, elev, tx, tz) {
-  camera.position.set(tx, Math.sin(elev) * dist, tz + Math.cos(elev) * dist);
+function placeCamera(d, fx, fz, k) {
+  const tx = camTarget.x + (fx - camTarget.x) * k * 0.35;
+  const tz = camTarget.z + (fz - camTarget.z) * k * 0.35;
+  const dist = d * (1 - k * 0.12);
+  camera.position.set(tx, Math.sin(ELEV) * dist, tz + Math.cos(ELEV) * dist);
   camera.lookAt(tx, 0, tz);
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
 }
-function placeCamera(d, fx, fz, k) {
-  const tx = camTarget.x + (fx - camTarget.x) * k * viewCur.follow;
-  const tz = camTarget.z + (fz - camTarget.z) * k * viewCur.follow;
-  rawCamera(d * (1 - k * viewCur.zoom), viewCur.elev, tx, tz);
-}
-
 
 export const debugFit = () => { fit(); return baseDist; };
 // només per a proves: renderitza des d'una càmera propera i torna la imatge
@@ -1332,19 +1298,7 @@ function loop(now) {
   camCur.x += (camFocus.x - camCur.x) * a;
   camCur.z += (camFocus.z - camCur.z) * a;
   camCur.k += (camFocus.k - camCur.k) * (reduced() ? 1 : 1 - Math.exp(-dt * 2.2));
-  // vista: s'acosta als valors de la vista triada; si segueix la fitxa, la càmera va amb ella
-  const want = viewWant();
-  const b = reduced() ? 1 : 1 - Math.exp(-dt * 2.4);
-  viewCur.elev += (want.elev - viewCur.elev) * b;
-  viewCur.follow += (want.follow - viewCur.follow) * b;
-  viewCur.zoom += (want.zoom - viewCur.zoom) * b;
-  viewCur.dist += (want.dist - viewCur.dist) * b;
-  if (view === 'follow' && pawns[turnTeam]) {
-    camFocus.x = pawns[turnTeam].position.x;
-    camFocus.z = pawns[turnTeam].position.z;
-    camFocus.k = 1;
-  }
-  placeCamera(viewCur.dist, camCur.x, camCur.z, camCur.k);
+  placeCamera(baseDist, camCur.x, camCur.z, camCur.k);
   if (now < shakeUntil) {
     const f = (shakeUntil - now) / 600;
     camera.position.x += Math.sin(now / 23) * shakeAmp * f;
@@ -2669,11 +2623,5 @@ export function focusPawn(k) {
 }
 export const debugCanvas = () => boardCanvas;
 // per a proves amb la pestanya en segon pla (sense requestAnimationFrame)
-export function renderOnce() {
-  // sense animació: la vista i el focus salten directament on han d'anar
-  Object.assign(viewCur, viewWant());
-  if (view === 'follow' && pawns[turnTeam]) { camCur.x = pawns[turnTeam].position.x; camCur.z = pawns[turnTeam].position.z; camCur.k = 1; }
-  placeCamera(viewCur.dist, camCur.x, camCur.z, camCur.k);
-  renderer.render(scene, camera);
-}
+export function renderOnce() { placeCamera(baseDist, camCur.x, camCur.z, camCur.k); renderer.render(scene, camera); }
 export const isAnimating = () => animating.size > 0;

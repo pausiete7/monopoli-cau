@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795611063';
-import * as S3 from './scene.js?v=1795611063';
-import { sfx } from './sound.js?v=1795611063';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795611063';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795611223';
+import * as S3 from './scene.js?v=1795611223';
+import { sfx } from './sound.js?v=1795611223';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795611223';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -23,9 +23,6 @@ export const ICON = {
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M17 6l3 3M14.5 8.5l2 2"/>',
   expand: '<path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/>',
-  viewGeneral: '<path d="M2 16 8 6h8l6 10Z"/><path d="M7 11h10M12 6v10"/>',
-  viewTop: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M4 15h16M9 4v16M15 4v16"/>',
-  viewFollow: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
@@ -63,7 +60,6 @@ export function renderTop(muted) {
     <div class="tools">
       <button class="icon-btn" type="button" data-act="undo" ${canUndo() ? '' : 'disabled'} title="Desfer l'últim pas (Ctrl+Z)" aria-label="Desfer">${icon('undo')}</button>
       <button class="icon-btn" type="button" data-act="log" title="Historial" aria-label="Historial">${icon('list')}</button>
-      <button class="icon-btn" type="button" data-act="view" title="Canviar la vista: ${S3.VIEWS[S3.getView()].name} (tecla V)" aria-label="Canviar la vista">${icon({ general: 'viewGeneral', top: 'viewTop', follow: 'viewFollow' }[S3.getView()])}</button>
       <button class="icon-btn" type="button" data-act="mute" title="${muted ? 'Activar el so' : 'Silenciar'}" aria-label="${muted ? 'Activar el so' : 'Silenciar'}">${icon(muted ? 'mute' : 'volume')}</button>
       <button class="icon-btn" type="button" data-act="fullscreen" title="Pantalla completa" aria-label="Pantalla completa">${icon('expand')}</button>
       <button class="icon-btn icon-btn-text" type="button" data-act="finish" title="Acabar la partida i veure qui guanya">${icon('trophy')}<span>Acabar</span></button>
