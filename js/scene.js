@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795610505';
-import { photoOf, initials } from './util.js?v=1795610505';
-import { deckName } from './data.js?v=1795610505';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795610696';
+import { photoOf, initials } from './util.js?v=1795610696';
+import { deckName } from './data.js?v=1795610696';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -903,29 +903,75 @@ function avatarTexture(t) {
   return tex;
 }
 
-function plaqueTexture(t, rent, mortgaged) {
+// foto de l'equip carregada (per a les plaques); quan acaba de carregar, es refan les plaques
+const plaqueImgs = {};
+function teamImg(t) {
+  const src = photoOf(t.id);
+  if (!src) return null;
+  const have = plaqueImgs[t.id];
+  if (have && have.src === src) return have.complete && have.naturalWidth ? have : null;
+  const img = new Image();
+  img.onload = () => {
+    Object.values(plaques).forEach((p) => { p.key += '*'; });
+    if (scene) refresh(false);
+  };
+  img.src = src;
+  plaqueImgs[t.id] = img;
+  return null;
+}
+function plaqueTexture(t, rent, mortgaged, aspect = 4) {
   const c = document.createElement('canvas');
-  c.width = 512; c.height = 128;
+  const PW = Math.round(128 * aspect);
+  c.width = PW; c.height = 128;
   const ctx = c.getContext('2d');
   ctx.fillStyle = mortgaged ? '#9A9AB0' : t.color;
-  ctx.fillRect(0, 0, 512, 128);
+  ctx.fillRect(0, 0, PW, 128);
   if (mortgaged) {
     ctx.strokeStyle = 'rgba(255,255,255,.35)';
     ctx.lineWidth = 14;
-    for (let k = -4; k < 12; k++) { ctx.beginPath(); ctx.moveTo(k * 50, 128); ctx.lineTo(k * 50 + 128, 0); ctx.stroke(); }
+    for (let k = -4; k < PW / 50 + 4; k++) { ctx.beginPath(); ctx.moveTo(k * 50, 128); ctx.lineTo(k * 50 + 128, 0); ctx.stroke(); }
   }
   const g = ctx.createLinearGradient(0, 0, 0, 128);
   g.addColorStop(0, 'rgba(255,255,255,.25)');
   g.addColorStop(1, 'rgba(0,0,0,.15)');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 512, 128);
-  setFont(ctx, 900, 70, 'normal');
+  ctx.fillRect(0, 0, PW, 128);
+  // retrat rodó de l'equip a l'esquerra (foto o inicials)
+  const cx = 66; const cy = 64; const r = 48;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  const img = teamImg(t);
+  if (mortgaged) ctx.filter = 'grayscale(1)';
+  if (img) {
+    ctx.fillStyle = t.color;
+    ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    const s = Math.min(img.width, img.height);
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, cx - r, cy - r, 2 * r, 2 * r);
+  } else {
+    ctx.fillStyle = mortgaged ? '#7A7A90' : t.color;
+    ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    setFont(ctx, 900, 44, 'normal');
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials(t.name), cx, cy + 3);
+  }
+  ctx.restore();
+  ctx.filter = 'none';
+  // lloguer (o HIPOTECADA) al lloc que queda
+  const label = mortgaged ? 'HIPOTECADA' : money(rent);
+  const left = cx + r + 14;
+  const room = PW - left - 16;
+  let fs = 70;
+  setFont(ctx, 900, fs, 'normal');
+  while (ctx.measureText(label).width > room && fs > 30) { fs -= 4; setFont(ctx, 900, fs, 'normal'); }
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0,0,0,.35)';
   ctx.shadowOffsetY = 3;
-  ctx.fillText(mortgaged ? 'HIPOTECADA' : money(rent), 256, 68);
+  ctx.fillText(label, left + room / 2, 68);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
@@ -1414,7 +1460,7 @@ export function refresh(animateHouses = false) {
     const o = state.owners[i];
     const r = rect(i);
     // placa
-    const key = o ? `${o.team}|${team(o.team).color}|${rentFor(i)}|${o.mortgaged}|${rules().currency}` : null;
+    const key = o ? `${o.team}|${team(o.team).color}|${team(o.team).name}|${photoOf(team(o.team).id).length}|${rentFor(i)}|${o.mortgaged}|${rules().currency}` : null;
     if (plaques[i] && plaques[i].key !== key) {
       scene.remove(plaques[i].mesh);
       plaques[i].mesh.material.forEach?.((m) => m.map?.dispose());
@@ -1422,12 +1468,12 @@ export function refresh(animateHouses = false) {
     }
     if (o && !plaques[i]) {
       const side = new THREE.MeshStandardMaterial({ color: o.mortgaged ? 0x77778A : team(o.team).color, roughness: 0.4 });
-      const topM = new THREE.MeshStandardMaterial({ map: plaqueTexture(team(o.team), rentFor(i), o.mortgaged), roughness: 0.35 });
       let w; let d; let x; let z;
-      if (r.side === 'b') { w = W - 0.16; d = 0.2; x = (r.x0 + r.x1) / 2; z = r.z1 - 0.15; }
-      else if (r.side === 't') { w = W - 0.16; d = 0.2; x = (r.x0 + r.x1) / 2; z = r.z0 + 0.15; }
-      else if (r.side === 'l') { w = C - BAND - 0.2; d = 0.2; x = r.x0 + 0.08 + w / 2; z = r.z1 - 0.15; }
-      else { w = C - BAND - 0.2; d = 0.2; x = r.x1 - 0.08 - w / 2; z = r.z1 - 0.15; }
+      if (r.side === 'b') { w = W - 0.16; d = 0.25; x = (r.x0 + r.x1) / 2; z = r.z1 - 0.17; }
+      else if (r.side === 't') { w = W - 0.16; d = 0.25; x = (r.x0 + r.x1) / 2; z = r.z0 + 0.17; }
+      else if (r.side === 'l') { w = C - BAND - 0.2; d = 0.25; x = r.x0 + 0.08 + w / 2; z = r.z1 - 0.17; }
+      else { w = C - BAND - 0.2; d = 0.25; x = r.x1 - 0.08 - w / 2; z = r.z1 - 0.17; }
+      const topM = new THREE.MeshStandardMaterial({ map: plaqueTexture(team(o.team), rentFor(i), o.mortgaged, w / d), roughness: 0.35 });
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), [side, side, topM, side, side, side]);
       m.position.set(x, 0.025, z);
       m.castShadow = true;
