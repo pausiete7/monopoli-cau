@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795624686';
+import * as G from './engine.js?v=1795625412';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden, watchIdle, demoFaces,
-} from './board.js?v=1795624686';
-import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795624686';
-import * as S3 from './scene.js?v=1795624686';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795624686';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795624686';
+} from './board.js?v=1795625412';
+import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795625412';
+import * as S3 from './scene.js?v=1795625412';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795625412';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795625412';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -836,6 +836,35 @@ async function loadFaceFolder(input) {
   toast(`${list.length} cares carregades i repartides.`);
 }
 
+// Fotos privades per defecte (cares, fons del centre i presó): només quan el joc s'obre des del portàtil
+// amb arrencar.bat. A internet la carpeta private no existeix i no passa res.
+async function loadPrivateDefaults() {
+  let man;
+  try {
+    const r = await fetch('private/fotos.json', { cache: 'no-store' });
+    if (!r.ok) return false;
+    man = await r.json();
+  } catch { return false; }
+  let old = '';
+  try { old = localStorage.getItem('caupoli-fotos-sig') || ''; } catch { /* sense memòria */ }
+  if (man.sig && man.sig === old && faceList().length) return false;
+  const blobOf = async (p) => {
+    try { const r = await fetch(`private/${p}`, { cache: 'no-store' }); return r.ok ? await r.blob() : null; } catch { return null; }
+  };
+  if (man.faces?.length) {
+    const blobs = (await Promise.all(man.faces.map(blobOf))).filter(Boolean);
+    const list = (await Promise.all(blobs.map(resizeFace))).filter(Boolean);
+    if (list.length && await saveFaces(list)) dealFaces(S().teams.map((t) => t.id));
+  }
+  for (const [id, large] of [['center', true], ['jail', false]]) {
+    if (!man[id]) continue;
+    const b = await blobOf(man[id]);
+    if (b) { try { setPhoto(id, await resizePhoto(b, large)); } catch { /* no és una imatge */ } }
+  }
+  try { localStorage.setItem('caupoli-fotos-sig', man.sig || ''); } catch { /* sense memòria */ }
+  return true;
+}
+
 // carrega una foto triada: d'un equip (índex) o del tauler (presó, centre)
 async function loadPhoto(input, teams) {
   const key = input.dataset.photo;
@@ -1325,7 +1354,8 @@ Promise.race([
     loadFaces(),
   ]),
   new Promise((r) => setTimeout(r, 2500)),
-]).catch(() => {}).finally(() => {
+]).catch(() => {}).finally(async () => {
+  await loadPrivateDefaults().catch(() => {});
   buildBoard(boardHandlers);
   full();
   // si la partida no ha començat (o encara ningú ha tirat), es mostra la preparació
