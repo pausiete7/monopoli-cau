@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795636321';
-import { photoOf, initials } from './util.js?v=1795636321';
-import { deckName } from './data.js?v=1795636321';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795637625';
+import { photoOf, initials, randomFace } from './util.js?v=1795637625';
+import { deckName } from './data.js?v=1795637625';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -256,7 +256,7 @@ function drawRails(ctx, x, y, w, h, vertical) {
   ctx.stroke();
 }
 
-function drawGo(ctx, x, y, w, h) {
+function drawGo(ctx, x, y, w, h, name = 'Sortida') {
   const g = ctx.createLinearGradient(x, y, x + w, y + h);
   g.addColorStop(0, '#FFF7D6');
   g.addColorStop(1, '#FFE08A');
@@ -265,18 +265,39 @@ function drawGo(ctx, x, y, w, h) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2);
   ctx.rotate(-Math.PI / 4);
-  setFont(ctx, 900, 150, 'expanded');
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = 18;
+  // el nom (p. ex. «CAU DE PIOS») en una o dues línies, tan gran com hi càpiga «SORTIDA»
+  setFont(ctx, 900, 150, 'expanded');
+  const maxW = ctx.measureText('SORTIDA').width;
+  const text = name.toUpperCase();
+  let lines = [text];
+  const words = text.split(' ');
+  if (ctx.measureText(text).width > maxW && words.length > 1) {
+    let best = null;
+    for (let k = 1; k < words.length; k++) {
+      const pair = [words.slice(0, k).join(' '), words.slice(k).join(' ')];
+      const wide = Math.max(...pair.map((l) => ctx.measureText(l).width));
+      if (!best || wide < best.wide) best = { pair, wide };
+    }
+    lines = best.pair;
+  }
+  const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
+  const size = Math.min(150, Math.floor(150 * maxW / widest), lines.length > 1 ? 120 : 150);
+  setFont(ctx, 900, size, 'expanded');
+  ctx.lineWidth = 18 * size / 150;
   ctx.strokeStyle = INK;
   ctx.lineJoin = 'round';
-  ctx.strokeText('SORTIDA', 0, -40);
-  ctx.fillStyle = '#E8473B';
-  ctx.fillText('SORTIDA', 0, -40);
+  const lh = size * 1.02;
+  const y0 = -40 - (lines.length - 1) * lh / 2 - (lines.length > 1 ? 20 : 0);
+  lines.forEach((l, k) => {
+    ctx.strokeText(l, 0, y0 + k * lh);
+    ctx.fillStyle = '#E8473B';
+    ctx.fillText(l, 0, y0 + k * lh);
+  });
   setFont(ctx, 800, 60, 'semi-condensed');
   ctx.fillStyle = INK;
-  ctx.fillText(`Cobra ${money(rules().goSalary)}`, 0, 70);
+  ctx.fillText(`Cobra ${money(rules().goSalary)}`, 0, 70 + (lines.length > 1 ? 30 : 0));
   ctx.restore();
   // fletxa gruixuda cap a l'esquerra (sentit del joc)
   ctx.save();
@@ -604,7 +625,7 @@ export function drawBoard(canvas) {
     ctx.fillStyle = PAPER;
     ctx.fillRect(x, y, w, h);
     if (r.side === 'c') {
-      if (cell.type === 'go') drawGo(ctx, x, y, w, h);
+      if (cell.type === 'go') drawGo(ctx, x, y, w, h, cell.name);
       else if (cell.type === 'jail') drawJail(ctx, x, y, w, h, cell.name);
       else if (cell.type === 'tax') drawTax(ctx, x, y, w, h, cell);
       else if (cell.type === 'gotojail') drawGoToJail(ctx, x, y, w, h, cell.name);
@@ -2021,10 +2042,25 @@ function billFace(n) {
   const cached = faceImgs[id];
   if (cached && cached.src === src) return cached.complete ? cached : null;
   const img = new Image();
+  img._k = ++faceSerial;
   img.onload = () => { potKey = ''; syncPot(false); };
   img.src = src;
   faceImgs[id] = img;
   return null;
+}
+let faceSerial = 0;
+// imatge d'una cara ja descodificada (per al bitllet gegant, que no pot esperar a l'onload)
+const bigImgs = new Map();
+async function readyFace(src) {
+  let img = bigImgs.get(src);
+  if (!img) {
+    img = new Image();
+    img._k = ++faceSerial;
+    img.src = src;
+    bigImgs.set(src, img);
+  }
+  try { await img.decode(); } catch { bigImgs.delete(src); return null; }
+  return img;
 }
 // bitllets per a una quantitat: els més grossos primer, com a molt BILL_MAX
 function billsFor(amount) {
@@ -2038,7 +2074,8 @@ function billsFor(amount) {
 }
 const billTexCache = {};
 function billTexture(kind, face) {
-  const key = `${kind.v}|${face ? face.src.length + face.src.slice(-24) : '-'}`;
+  // cada imatge té el seu número: dues cares diferents no poden compartir textura
+  const key = `${kind.v}|${face ? face._k : '-'}`;
   if (billTexCache[key]) return billTexCache[key];
   const W2 = 1024; const H2 = 480;
   const c = document.createElement('canvas');
@@ -2445,12 +2482,17 @@ export function potWin(teamIdx) {
   if (p) sparkle(p.position.x, p.position.z, 18, 1);
   shake(0.03, 400);
 }
-// imatge d'un bitllet gran (el de més valor que cap a la quantitat), amb la cara que toca
+// imatge d'un bitllet gran (el de més valor que cap a la quantitat), amb la cara que toca.
+// Espera que la foto estigui descodificada: abans, si la foto encara no s'havia carregat
+// (primer bitllet o partida nova amb cares noves), el bitllet sortia sense cara.
 let bigFace = 0;
-export function billImage(amount) {
+export async function billImage(amount) {
   const kind = BILL_KINDS.find((b) => amount >= b.v) || BILL_KINDS[BILL_KINDS.length - 1];
+  const srcs = BILL_FACES.map((id) => photoOf(id)).filter(Boolean);
+  // si no hi ha cares de bitllet, una de la galeria
+  if (!srcs.length) { const f = randomFace(); if (f) srcs.push(f); }
   let face = null;
-  for (let k = 0; k < BILL_FACES.length && !face; k++) face = billFace((bigFace + k) % BILL_FACES.length);
+  for (let k = 0; k < srcs.length && !face; k++) face = await readyFace(srcs[(bigFace + k) % srcs.length]);
   bigFace++;
   return billTexture(kind, face).image;
 }
@@ -2736,6 +2778,12 @@ function cardIcon(ctx, effect, value, col) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Z', -14, 10); setFont(ctx, 900, 36, 'normal'); ctx.fillText('z', 22, -18);
       break;
+    case 'half':
+      // farmaciola: caixa amb una creu
+      roundRect(ctx, -40, -28, 80, 62, 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-14, -28); ctx.lineTo(-14, -40); ctx.lineTo(14, -40); ctx.lineTo(14, -28); ctx.stroke();
+      ctx.fillRect(-6, -16, 12, 38); ctx.fillRect(-19, -3, 38, 12);
+      break;
     case 'extra':
       roundRect(ctx, -36, -36, 72, 72, 14); ctx.stroke();
       [[-16, -16], [16, 16], [0, 0], [16, -16], [-16, 16]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); });
@@ -2824,7 +2872,7 @@ export function cardFaceCanvas(deck, card = {}) {
   // què fa la carta, amb color segons si es cobra o es paga
   if (card.foot) {
     const v = Number(card.value) || 0;
-    const tone = ['money', 'each'].includes(card.effect) ? (v >= 0 ? 'good' : 'bad') : card.effect === 'jail' || card.effect === 'skip' || card.effect === 'repairs' ? 'bad' : card.effect === 'text' ? 'neutral' : 'good';
+    const tone = ['money', 'each'].includes(card.effect) ? (v >= 0 ? 'good' : 'bad') : card.effect === 'jail' || card.effect === 'skip' || card.effect === 'half' || card.effect === 'repairs' ? 'bad' : card.effect === 'text' ? 'neutral' : 'good';
     const bg = { good: '#E3F5EA', bad: '#FBE6E4', neutral: '#EEF1FA' }[tone];
     const fg = { good: '#167A3F', bad: '#B22A20', neutral: INK }[tone];
     setFont(ctx, 900, 32, 'normal');

@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795636321';
-import * as S3 from './scene.js?v=1795636321';
-import { sfx } from './sound.js?v=1795636321';
-import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795636321';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules, goName } from './engine.js?v=1795637625';
+import * as S3 from './scene.js?v=1795637625';
+import { sfx } from './sound.js?v=1795637625';
+import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795637625';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -178,6 +178,7 @@ export function renderTeams(opts = {}) {
     if (t.jailCards) tags.push(`<span class="tag good">${icon('key')}Surt de la presó${t.jailCards > 1 ? ` ×${t.jailCards}` : ''}</span>`);
     if (t.skip) tags.push(`<span class="tag bad">${icon('skip')}Perd ${t.skip > 1 ? `${t.skip} torns` : 'el torn'}</span>`);
     if (t.extra) tags.push(`<span class="tag good">${icon('dice')}Tirada extra</span>`);
+    if (t.half) tags.push(`<span class="tag bad">${icon('dice')}Avança la meitat</span>`);
     return `<button class="tcard${k === state.turn ? ' is-turn' : ''}${t.bankrupt ? ' is-out' : ''}" type="button" data-team="${k}" style="--tc:${t.color}">
       <span class="tc-head"><span class="tc-av" style="${avatarStyle(t)}">${avatarText(t)}</span><span class="tc-name">${esc(t.name)}</span></span>
       <span class="tc-money${t.money < 0 ? ' neg' : ''}" data-money="${k}">${money(shownMoney[k] ?? t.money)}</span>
@@ -305,9 +306,9 @@ function flyMoney(from, to, amount) {
 }
 // Bitllet gegant amb una cara al mig: surt de qui paga, es queda gran al centre perquè es vegi bé la
 // cara i després vola cap al pot (o del pot cap a l'equip que se l'emporta).
-function bigBill(from, to, amount) {
+async function bigBill(from, to, amount) {
   if (reduced()) return;
-  const img = S3.billImage(amount);
+  const img = await S3.billImage(amount);
   if (!img) return;
   const layer = $('#fx');
   const a = anchor(from);
@@ -488,7 +489,7 @@ export async function playFx() {
           floatLabel(`+${money(e.amount)}`, S3.screenPos(0), 'good');
           await wait(reduced() ? 0 : 900);
           // una cara surt disparada amb els diners de la Sortida
-          await faceMoment('go', { title: `+${money(e.amount)}`, sub: `${team(e.team).name} passa per la Sortida`, color: team(e.team).color });
+          await faceMoment('go', { title: `+${money(e.amount)}`, sub: `${team(e.team).name} passa pel ${goName()}`, color: team(e.team).color });
           break;
         case 'tax':
           // Multa: segell vermell que cau sobre la cantonada
@@ -663,7 +664,7 @@ export async function demoFaces() {
     ['Construir un hotel', () => { sfx.hotel(); return faceMoment('hotel', { title: `Hotel ${shortName(T0.name)}`, sub: b[prop].name, color: T0.color, extra: '<span class="fp-sign">HOTEL</span>' }); }],
     ['Guanyar una subhasta', () => faceMoment('auction', { sound: 'gavel', title: 'Adjudicat!', sub: `${b[prop].name} per ${money(180)}`, color: T1.color, extra: `<span class="fp-gavel">${icon('gavel')}</span>` })],
     ['Sortir de la presó', () => faceMoment('free', { sound: 'good', title: 'Lliure!', sub: T1.name, color: T1.color, extra: '<span class="fp-bars"><i></i><i></i><i></i><i></i></span>' })],
-    ['Passar per la Sortida', () => { sfx.coins(); return faceMoment('go', { title: `+${money(rules().goSalary)}`, sub: `${T0.name} passa per la Sortida`, color: T0.color }); }],
+    [`Passar pel ${goName()}`, () => { sfx.coins(); return faceMoment('go', { title: `+${money(rules().goSalary)}`, sub: `${T0.name} passa pel ${goName()}`, color: T0.color }); }],
     ['Quedar-se en negatiu', () => faceMoment('broke', { sound: 'bad', title: 'Ai, ai, ai…', sub: `${T1.name} està en negatiu`, color: T1.color })],
     ['Fer un intercanvi', () => faceMoment('trade', { sound: 'good', title: 'Tracte fet!', sub: `${T0.name} i ${T1.name}`, color: T0.color, faces: 2 })],
     ["Emportar-se el pot del Pàrquing", () => faceMoment('pot', { sound: 'good', title: "S'emporta el pot!", sub: `${T0.name}: ${money(250)}`, color: T0.color })],

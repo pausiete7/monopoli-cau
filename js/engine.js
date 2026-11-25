@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795636321';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795637625';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -107,10 +107,31 @@ function migrate() {
     state.config.cards?.good?.forEach((c) => { if (c.effect === 'goto' && c.value === 22 && /Bar Juan/.test(c.text)) c.value = 23; });
     state.config.contentV = 5;
   }
+  // 25/11 nit: carrers, estació i cartes del tercer moni; la Sortida es diu Cau de Pios
+  if (state.config.contentV < 6) {
+    const OLD = { 0: 'Sortida', 4: 'Pati del cau', 5: 'Local de Pioners', 9: 'Estació Renfe Rubí', 10: 'Riera de Rubí', 11: "Parc de Ca n'Oriol" };
+    Object.entries(OLD).forEach(([i, old]) => {
+      const s = state.config.board[i];
+      if (s && s.name === old && BOARD[i]) s.name = BOARD[i].name;
+    });
+    const c = state.config.cards;
+    ['good', 'bad'].forEach((d) => {
+      if (!c?.[d]) return;
+      c[d].forEach((x) => { x.text = x.text.replace('ves a la Sortida', 'ves al Cau de Pios').replace('per la Sortida', 'pel Cau de Pios'); });
+      // si encara hi ha les 10 d'en Nacho i d'en Pau, s'hi afegeixen les 5 noves i entren al mall barrejades
+      if (c[d].length === 10 && c[d][9].text === CARDS[d][9].text) {
+        for (let k = 10; k < CARDS[d].length; k++) {
+          c[d].push(clone(CARDS[d][k]));
+          state.decks?.[d]?.splice(Math.floor(Math.random() * (state.decks[d].length + 1)), 0, k);
+        }
+      }
+    });
+    state.config.contentV = 6;
+  }
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
   state.started ??= state.log.length > 0;
-  state.teams.forEach((t, k) => { t.skip ??= 0; t.extra ??= 0; t.jailCards ??= 0; t.token ??= TEAMS[k % TEAMS.length].token; if (t.token === 'bruixola') t.token = 'fular'; if (t.token === 'fanal') t.token = 'frontal'; });
+  state.teams.forEach((t, k) => { t.skip ??= 0; t.extra ??= 0; t.half ??= 0; t.jailCards ??= 0; t.token ??= TEAMS[k % TEAMS.length].token; if (t.token === 'bruixola') t.token = 'fular'; if (t.token === 'fanal') t.token = 'frontal'; });
 }
 
 export function defaultConfig() {
@@ -124,7 +145,7 @@ export function newGame(config = state?.config || defaultConfig(), teams = state
     teams: teams.map((t) => ({
       id: t.id, name: t.name, color: t.color, token: t.token,
       money: config.rules.startMoney, pos: 0,
-      jail: false, jailTurns: 0, jailCards: 0, skip: 0, extra: 0, bankrupt: false,
+      jail: false, jailTurns: 0, jailCards: 0, skip: 0, extra: 0, half: 0, bankrupt: false,
     })),
     owners: {},
     turn: 0,
@@ -252,6 +273,8 @@ function transfer(from, to, amount, reason) {
 }
 
 const name = (t) => team(t).name;
+// nom de la casella de sortida (ara «Cau de Pios»; es pot canviar a Configuració)
+export const goName = () => state?.config.board.find((s) => s.type === 'go')?.name || 'Sortida';
 
 // ---------- Moviment ----------
 function moveSteps(t, steps) {
@@ -268,7 +291,7 @@ function moveSteps(t, steps) {
       path = [];
       push({ type: 'go', team: t, amount: rules().goSalary });
       transfer('bank', t, rules().goSalary);
-      log(`${T.name} passa per la Sortida i cobra ${money(rules().goSalary)}.`, 'good');
+      log(`${T.name} passa pel ${goName()} i cobra ${money(rules().goSalary)}.`, 'good');
     }
   }
   T.pos = pos;
@@ -394,7 +417,14 @@ export function roll(n) {
   } else {
     log(`${T.name} treu un ${n}.`, 'info');
   }
-  moveSteps(t, n);
+  // carta de la farmaciola: aquesta tirada només avança la meitat (arrodonint amunt)
+  let steps = n;
+  if (T.half > 0) {
+    T.half--;
+    steps = Math.ceil(n / 2);
+    log(`${T.name} porta la farmaciola: només avança ${steps} ${steps === 1 ? 'casella' : 'caselles'}.`, 'bad');
+  }
+  moveSteps(t, steps);
   land(t);
   state.phase = 'end';
   save();
@@ -602,6 +632,9 @@ export function applyCard(choice) {
       break;
     case 'extra':
       T.extra++;
+      break;
+    case 'half':
+      T.half++;
       break;
     case 'station': {
       if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }

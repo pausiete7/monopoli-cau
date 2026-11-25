@@ -44,7 +44,7 @@ const ACTIONS = {
   raise: () => raise(anyTeam()),
   checkBankrupt: () => G.checkBankrupt(),
   undo: () => G.undo(),
-  config: () => G.updateConfig((st) => { if (rnd(2)) st.config.cards.good.pop(); else st.config.cards.bad.push({ text: 'x', effect: pick(['money', 'each', 'goto', 'move', 'jail', 'jailfree', 'repairs', 'skip', 'extra', 'text']), value: rnd(400) - 200 }); if (!st.config.cards.good.length) st.config.cards.good.push({ text: 'y', effect: 'money', value: 10 }); }),
+  config: () => G.updateConfig((st) => { if (rnd(2)) st.config.cards.good.pop(); else st.config.cards.bad.push({ text: 'x', effect: pick(['money', 'each', 'goto', 'move', 'jail', 'jailfree', 'repairs', 'skip', 'extra', 'half', 'text']), value: rnd(400) - 200 }); if (!st.config.cards.good.length) st.config.cards.good.push({ text: 'y', effect: 'money', value: 10 }); }),
 };
 const names = Object.keys(ACTIONS);
 

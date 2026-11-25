@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795636321';
+import * as G from './engine.js?v=1795637625';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden, watchIdle, demoFaces,
-} from './board.js?v=1795636321';
-import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795636321';
-import * as S3 from './scene.js?v=1795636321';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795636321';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795636321';
+} from './board.js?v=1795637625';
+import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795637625';
+import * as S3 from './scene.js?v=1795637625';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795637625';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795637625';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -243,6 +243,7 @@ function effectSummary(c) {
     case 'repairs': return `${G.money(v)} per casa`;
     case 'skip': return 'Perd el pròxim torn';
     case 'extra': return 'Tirada extra';
+    case 'half': return 'La pròxima tirada avança la meitat';
     case 'station': return 'Tria una estació';
     case 'perprop': return v >= 0 ? `Cobra ${G.money(v)} per propietat` : `Paga ${G.money(-v)} per propietat`;
     case 'goback': return `Torna a ${G.sq(((v % G.N()) + G.N()) % G.N())?.name || 'la casella'}`;
@@ -705,7 +706,7 @@ const SQUARE_HELP = {
     return `Si només hi caieu, esteu de visita. Per sortir de la presó: ${ways.join(', ')}. Com a molt s'hi passen ${R.jailMaxTurns} torns.`;
   },
   parking: () => (G.rules().parkingPot ? `Qui hi cau s'emporta el pot de multes: ara hi ha ${G.money(S().pot)}. Hi van a parar els pagaments de les cartes, les reparacions i el que es paga per sortir de la presó.` : 'Casella de descans: no passa res.'),
-  gotojail: () => 'Qui hi cau va directament a la presó, sense passar per la Sortida.',
+  gotojail: () => 'Qui hi cau va directament a la presó, sense passar pel ' + G.goName() + '.',
   chance: () => `Qui hi cau agafa una carta ${G.rules().chanceDeck === 'good' ? 'bona' : G.rules().chanceDeck === 'bad' ? 'dolenta' : 'a l\'atzar (bona o dolenta)'}.`,
   tax: (s) => `Qui hi cau paga ${G.money(s.amount)}.`,
 };
@@ -926,7 +927,7 @@ function settingsModal(tab = 'teams') {
   const r = draft.rules;
   const rulesHTML = () => `<div class="cfg-rules">
       <label class="field"><span>Diners per començar</span><input type="number" data-r="startMoney" value="${r.startMoney}" step="50"></label>
-      <label class="field"><span>Cobrar a la Sortida</span><input type="number" data-r="goSalary" value="${r.goSalary}" step="10"></label>
+      <label class="field"><span>Cobrar al ${esc(G.goName())}</span><input type="number" data-r="goSalary" value="${r.goSalary}" step="10"></label>
       <label class="field"><span>Pagar per sortir de la presó</span><input type="number" data-r="jailFine" value="${r.jailFine}" step="10"></label>
       <label class="field"><span>Número per sortir de la presó</span><input type="number" data-r="jailExitRoll" value="${r.jailExitRoll}" min="1" max="12"></label>
       <label class="field"><span>Torns màxims a la presó</span><input type="number" data-r="jailMaxTurns" value="${r.jailMaxTurns}" min="1" max="10"></label>
@@ -947,7 +948,7 @@ function settingsModal(tab = 'teams') {
       <label class="btn">Carregar una partida<input type="file" accept="application/json,.json" data-g="import" hidden></label>
     </div>
     <h3 class="label" style="margin-top:24px">Partida nova</h3>
-    <p class="muted">Torna a posar tots els equips a la Sortida amb els diners inicials i sense propietats. Es mantenen els noms, les fotos, el tauler i les cartes.</p>
+    <p class="muted">Torna a posar tots els equips al ${esc(G.goName())} amb els diners inicials i sense propietats. Es mantenen els noms, les fotos, el tauler i les cartes.</p>
     <button class="btn btn-danger" type="button" data-g="new">Començar una partida nova</button>
     <h3 class="label" style="margin-top:24px">Contingut d'exemple</h3>
     <p class="muted">Torna a posar el tauler i les cartes d'exemple (perdreu els que hàgiu escrit).</p>
@@ -1138,7 +1139,7 @@ function setupModal() {
     </div>`).join('')}</div>
     <div class="cfg-rules" style="margin-top:18px">
       <label class="field"><span>Diners per començar</span><input type="number" data-r="startMoney" value="${vals.startMoney}" step="50" min="0"></label>
-      <label class="field"><span>Cobrar en passar per la Sortida</span><input type="number" data-r="goSalary" value="${vals.goSalary}" step="10" min="0"></label>
+      <label class="field"><span>Cobrar en passar pel ${esc(G.goName())}</span><input type="number" data-r="goSalary" value="${vals.goSalary}" step="10" min="0"></label>
       <label class="field"><span>Torns màxims a la presó</span><input type="number" data-r="jailMaxTurns" value="${vals.jailMaxTurns}" step="1" min="1" max="10"></label>
       <label class="field"><span>Pot inicial del Pàrquing</span><input type="number" data-r="potStart" value="${vals.potStart}" step="50" min="0"></label>
     </div>
@@ -1274,7 +1275,7 @@ function finishModal() {
 function restartModal() {
   openModal({
     title: 'Reiniciar la partida?',
-    body: `<p class="lead">Tots els equips tornaran a la Sortida amb els diners inicials i sense propietats. Això no es pot desfer.</p>
+    body: `<p class="lead">Tots els equips tornaran al ${esc(G.goName())} amb els diners inicials i sense propietats. Això no es pot desfer.</p>
       <p class="muted">Es mantenen els noms, les fotos, el tauler i les cartes. Després podreu revisar els equips i els diners abans de començar.</p>`,
     foot: '<button class="btn btn-ghost" type="button" data-close-btn>Cancel·lar</button><span class="spacer"></span><button class="btn btn-danger" type="button" data-a="go">Sí, reiniciar</button>',
     onMount(d) {
