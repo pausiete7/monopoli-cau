@@ -35,15 +35,23 @@ const openDb = () => new Promise((res, rej) => {
   r.onerror = () => rej(r.error);
 });
 
+// Es guarden a IndexedDB; si el navegador ho bloqueja (Brave amb escuts, per exemple), a localStorage.
+const LS_FACES = 'caupoli-cares';
+const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('temps')), ms));
+
 export async function loadFaces() {
+  faces = [];
   try {
-    const db = await openDb();
+    const db = await Promise.race([openDb(), timeout(3000)]);
     faces = await new Promise((res) => {
       const q = db.transaction('f').objectStore('f').get('all');
       q.onsuccess = () => res(Array.isArray(q.result) ? q.result : []);
       q.onerror = () => res([]);
     });
   } catch { faces = []; }
+  if (!faces.length) {
+    try { faces = JSON.parse(localStorage.getItem(LS_FACES) || '[]'); } catch { faces = []; }
+  }
   bag = [];
   return faces.length;
 }
@@ -51,16 +59,24 @@ export async function loadFaces() {
 export async function saveFaces(list) {
   faces = list;
   bag = [];
+  let ok = false;
   try {
-    const db = await openDb();
+    const db = await Promise.race([openDb(), timeout(3000)]);
     await new Promise((res, rej) => {
       const tx = db.transaction('f', 'readwrite');
       tx.objectStore('f').put(list, 'all');
       tx.oncomplete = res;
       tx.onerror = () => rej(tx.error);
     });
-    return true;
-  } catch { return false; }
+    ok = true;
+  } catch { ok = false; }
+  // còpia de reserva (o l'únic lloc, si IndexedDB no va)
+  try {
+    if (list.length) localStorage.setItem(LS_FACES, JSON.stringify(list));
+    else localStorage.removeItem(LS_FACES);
+    ok = true;
+  } catch { /* massa gran per a localStorage: queda només a IndexedDB */ }
+  return ok;
 }
 
 export const faceList = () => faces;
