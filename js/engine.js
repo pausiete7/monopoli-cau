@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795623552';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795623777';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -82,6 +82,15 @@ function migrate() {
       state.decks = { good: shuffle(range(CARDS.good.length)), bad: shuffle(range(CARDS.bad.length)) };
     }
     state.config.contentV = 2;
+  }
+  // 25/11 vespre: en Pau reparteix els carrers per colors (Bar Juan i Canu els blaus, etc.)
+  if (state.config.contentV < 3) {
+    const V2 = { 2: 'Bar Juan', 4: 'Canu', 5: 'Sala de profes', 14: 'La Carral', 17: "Cim de la Pica d'Estats", 19: "Campaments d'estiu", 20: 'Ruta de Pioners', 22: 'Vall de Núria', 23: 'Puigmal' };
+    Object.entries(V2).forEach(([i, old]) => {
+      const s = state.config.board[i];
+      if (s && s.name === old && BOARD[i]) s.name = BOARD[i].name;
+    });
+    state.config.contentV = 3;
   }
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
