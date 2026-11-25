@@ -1063,3 +1063,38 @@ input[type=range] { width: 100%; accent-color: var(--red); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- Galeria de cares (Configuració) ---------- */
+.cfg-faces { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; align-items: center; margin-top: 8px; padding: 12px; border-radius: 18px; background: var(--paper-2); }
+.cfg-faces .cf-strip { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cfg-faces .cf-strip span { width: 44px; height: 44px; border-radius: 50%; background: #2A2C5E center / cover; }
+.cfg-faces .cf-strip em { font-style: normal; font-weight: 700; color: var(--muted, #666); padding-left: 4px; }
+.cfg-faces .cf-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.cfg-faces .cf-btns .btn { cursor: pointer; }
+
+/* ---------- Cartell de BUSCAT (anar a la presó) ---------- */
+.wanted { position: fixed; inset: 0; z-index: 41; display: grid; place-items: center; pointer-events: none; }
+.wt-paper {
+  width: min(400px, 74vw);
+  padding: 22px 26px 24px;
+  display: grid; justify-items: center; gap: 6px;
+  color: #3B2414;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(110, 62, 20, .38) 100%),
+    linear-gradient(170deg, #F4E2B8, #E5C88E);
+  border-radius: 6px;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, .55), inset 0 0 0 3px rgba(80, 45, 15, .25);
+  transform: translateY(-110vh);
+}
+.wt-title { font: 900 clamp(48px, 5.4vw, 76px)/.9 var(--f-display); font-variation-settings: 'wdth' 100; letter-spacing: .03em; }
+.wt-crime { font: 800 clamp(18px, 1.8vw, 24px)/1.1 var(--f-display); }
+.wt-face {
+  width: min(250px, 50vw); aspect-ratio: 1; margin: 6px 0;
+  border-radius: 8px;
+  border: 5px solid #3B2414;
+  background: #CDB07A center / cover;
+  filter: sepia(.35) contrast(1.08);
+}
+.wt-name { font: 900 clamp(26px, 2.8vw, 38px)/1 var(--f-display); color: var(--tc); text-shadow: 0 2px 0 rgba(0, 0, 0, .25); }
+.wt-reward { font-weight: 700; font-size: clamp(15px, 1.4vw, 19px); border-top: 2px dashed rgba(59, 36, 20, .45); padding-top: 8px; margin-top: 4px; }

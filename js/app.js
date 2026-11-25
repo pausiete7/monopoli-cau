@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795613462';
+import * as G from './engine.js?v=1795621241';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden,
-} from './board.js?v=1795613462';
-import { photoOf, setPhoto, avatarStyle, avatarText } from './util.js?v=1795613462';
-import * as S3 from './scene.js?v=1795613462';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795613462';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795613462';
+} from './board.js?v=1795621241';
+import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795621241';
+import * as S3 from './scene.js?v=1795621241';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795621241';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795621241';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -781,6 +781,54 @@ const boardPhotosHTML = () => Object.entries(BOARD_PHOTOS).map(([id, p]) => {
   </div>`;
 }).join('');
 
+// galeria de cares: es carrega una carpeta sencera d'un sol cop (només es guarda en aquest navegador)
+const facesHTML = () => {
+  const list = faceList();
+  const shown = list.slice(0, 14);
+  return `<div class="cfg-faces">
+    <div class="cf-text"><b>Cares per a la partida</b>
+      <div class="muted">${list.length
+        ? `${list.length} cares. A cada partida nova, els equips i els bitllets del pot en reben una a l'atzar, i surten en moments de la partida.`
+        : "Trieu la carpeta amb les cares retallades: a cada partida nova, els equips i els bitllets del pot en reben una a l'atzar."}</div></div>
+    ${list.length ? `<div class="cf-strip">${shown.map((f) => `<span style="background-image:url(${f})"></span>`).join('')}${list.length > shown.length ? `<em>+${list.length - shown.length}</em>` : ''}</div>` : ''}
+    <div class="cf-btns">
+      <label class="btn">${icon('camera')}${list.length ? 'Canviar la carpeta' : 'Carregar carpeta de cares'}<input type="file" accept="image/*" multiple webkitdirectory data-faces hidden></label>
+      ${list.length ? '<button class="btn btn-ghost" type="button" data-nofaces>Treure les cares</button>' : ''}
+    </div>
+  </div>`;
+};
+
+// cada cara es guarda petita (256 px) perquè n'hi càpiguen moltes
+function resizeFace(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const s = Math.min(img.width, img.height);
+      c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 256, 256);
+      URL.revokeObjectURL(url);
+      const webp = c.toDataURL('image/webp', 0.86);
+      resolve(webp.startsWith('data:image/webp') ? webp : c.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(''); };
+    img.src = url;
+  });
+}
+
+async function loadFaceFolder(input) {
+  // els fitxers que comencen per «_» (fulls de mostra) no són cares
+  const files = [...input.files].filter((f) => f.type.startsWith('image/') && !f.name.startsWith('_'))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  if (!files.length) { toast('A la carpeta no hi ha cap foto.'); return; }
+  toast(`Carregant ${files.length} cares…`);
+  const list = (await Promise.all(files.map(resizeFace))).filter(Boolean);
+  if (!await saveFaces(list)) { toast("No s'han pogut desar les cares: el navegador no té espai."); return; }
+  dealFaces(S().teams.map((t) => t.id));
+  toast(`${list.length} cares carregades i repartides.`);
+}
+
 // carrega una foto triada: d'un equip (índex) o del tauler (presó, centre)
 async function loadPhoto(input, teams) {
   const key = input.dataset.photo;
@@ -812,6 +860,7 @@ function settingsModal(tab = 'teams') {
       ${tokenPick(k, t.token)}
     </div>`).join('')}</div>
     <h3 class="label" style="margin-top:18px">Fotos del tauler</h3>
+    ${facesHTML()}
     ${boardPhotosHTML()}`;
 
   const per = draft.board.length / 4;
@@ -928,6 +977,10 @@ function settingsModal(tab = 'teams') {
 
       bodyEl.addEventListener('change', async (e) => {
         const el = e.target;
+        if (el.dataset.faces !== undefined && el.files.length) {
+          await loadFaceFolder(el);
+          show(); buildBoard(); full();
+        }
         if (el.dataset.photo !== undefined && el.files[0]) {
           try {
             await loadPhoto(el, teams);
@@ -957,6 +1010,7 @@ function settingsModal(tab = 'teams') {
         if (ds.ttoken !== undefined) { const [k, key] = ds.ttoken.split(':'); teams[k].token = key; sfx.click(); show(); }
         if (ds.nophoto !== undefined) { setPhoto(teams[ds.nophoto].id, ''); show(); full(); }
         if (ds.noboardphoto !== undefined) { setPhoto(ds.noboardphoto, ''); show(); buildBoard(); full(); }
+        if (ds.nofaces !== undefined) { saveFaces([]).then(() => show()); }
         if (ds.cdel !== undefined) {
           const [dk, k] = ds.cdel.split(':');
           if (draft.cards[dk].length <= 1) { toast('Cal deixar com a mínim una carta.'); return; }
@@ -982,6 +1036,7 @@ function settingsModal(tab = 'teams') {
           G.state.config = clone(draft);
           G.state.teams.forEach((t, k) => { t.name = teams[k].name; t.color = teams[k].color; t.token = teams[k].token; });
           G.newGame(draft, S().teams);
+          dealFaces(S().teams.map((t) => t.id));
           buildBoard();
           dlg.close();
           full();
@@ -1057,6 +1112,7 @@ function setupModal() {
         <label class="jr-val" ${vals.jailRoll ? '' : 'hidden'}><span>Número</span><input type="number" data-r="jailExitRoll" value="${vals.jailExitRoll}" step="1" min="1" max="12"></label></div>
       <p class="muted">La carta de ${esc(deckName(r, 'good'))} per quedar lliure de la presó sempre funciona.${!vals.jailPay && !vals.jailRoll ? ` Sense cap opció, se surt després de ${vals.jailMaxTurns} torns.` : ''}</p>
     </div>
+    ${facesHTML()}
     ${boardPhotosHTML()}
     <p class="muted" style="margin-top:14px">Les fotos es guarden només en aquest ordinador; no es pugen a internet. Les cartes, el tauler i la resta de regles són a Configuració.</p>`;
   openModal({
@@ -1078,6 +1134,11 @@ function setupModal() {
       });
       box.addEventListener('change', async (e) => {
         const el = e.target;
+        if (el.dataset.faces !== undefined && el.files.length) {
+          await loadFaceFolder(el);
+          show(); buildBoard(); full();
+          return;
+        }
         if (el.dataset.photo === undefined || !el.files[0]) return;
         try {
           await loadPhoto(el, teams);
@@ -1090,6 +1151,7 @@ function setupModal() {
         if (tk) { const [k, key] = tk.dataset.ttoken.split(':'); teams[k].token = key; sfx.click(); show(); return; }
         const b = e.target.closest('[data-noboardphoto]');
         if (b) { setPhoto(b.dataset.noboardphoto, ''); show(); buildBoard(); full(); }
+        if (e.target.closest('[data-nofaces]')) saveFaces([]).then(() => show());
       });
       d.querySelector('[data-a=adv]').addEventListener('click', () => settingsModal('rules'));
       d.querySelector('[data-a=go]').addEventListener('click', () => {
@@ -1181,6 +1243,7 @@ function restartModal() {
       d.querySelector('[data-close-btn]').addEventListener('click', () => dlg.close());
       d.querySelector('[data-a=go]').addEventListener('click', () => {
         G.newGame(S().config, S().teams);
+        dealFaces(S().teams.map((t) => t.id));
         S3.dropCard(true);
         dlg.close();
         buildBoard();
@@ -1249,6 +1312,7 @@ Promise.race([
     document.fonts.load('800 64px Anybody'),
     document.fonts.load('900 64px Anybody'),
     document.fonts.load('700 20px "Atkinson Hyperlegible"'),
+    loadFaces(),
   ]),
   new Promise((r) => setTimeout(r, 2500)),
 ]).catch(() => {}).finally(() => {

@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795613462';
-import * as S3 from './scene.js?v=1795613462';
-import { sfx } from './sound.js?v=1795613462';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795613462';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795621241';
+import * as S3 from './scene.js?v=1795621241';
+import { sfx } from './sound.js?v=1795621241';
+import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795621241';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -439,6 +439,11 @@ export async function playFx() {
           await wait(reduced() ? 0 : 650);
           break;
         case 'banner':
+          // «A la presó!» amb galeria de cares: cartell de BUSCAT amb una cara a l'atzar
+          if (e.text === 'A la presó!' && e.team != null && !reduced()) {
+            const face = randomFace();
+            if (face) { sfx.jail(); await wanted(e.team, face); break; }
+          }
           if (/presó/i.test(e.text)) sfx.jail();
           else if (/fallida/i.test(e.text)) sfx.bankrupt();
           else if (/^guanya/i.test(e.text)) sfx.winner();
@@ -515,6 +520,42 @@ export async function playFx() {
 }
 
 export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
+
+// cartell de l'Oest: cau al mig de la pantalla i després se'n va volant cap a la presó
+const CRIMES = ['Per mal rotllet', 'Per robar xuxes', 'Per no fregar les olles', 'Per roncar a la tenda', 'Per perdre el fular', 'Per arribar tard a la formació'];
+const REWARDS = ['una bossa de xuxes', 'un entrepà de Nocilla', 'el postre de tothom','un got de Cola Cao', 'deu minuts més de foc'];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+async function wanted(k, face) {
+  const T = team(k);
+  const el = document.createElement('div');
+  el.className = 'wanted';
+  el.style.setProperty('--tc', T.color);
+  el.innerHTML = `<div class="wt-paper">
+    <b class="wt-title">BUSCAT</b>
+    <span class="wt-crime">${esc(pick(CRIMES))}</span>
+    <span class="wt-face" style="background-image:url(${face})"></span>
+    <span class="wt-name">${esc(T.name)}</span>
+    <span class="wt-reward">Recompensa: ${esc(pick(REWARDS))}</span>
+  </div>`;
+  $('#fx').appendChild(el);
+  const paper = el.firstElementChild;
+  await paper.animate([
+    { transform: 'translateY(-110vh) rotate(-14deg)' },
+    { transform: 'translateY(2vh) rotate(-3deg)', offset: 0.75 },
+    { transform: 'translateY(0) rotate(-4deg)' },
+  ], { duration: 650, easing: 'cubic-bezier(.3,.9,.4,1.1)', fill: 'forwards' }).finished;
+  await wait(2300);
+  // se'n va cap a la cantonada de la presó, petit
+  const r = paper.getBoundingClientRect();
+  const to = S3.screenPos(T.pos);
+  const dx = to ? to.x - (r.left + r.width / 2) : 0;
+  const dy = to ? to.y - (r.top + r.height / 2) : window.innerHeight;
+  await paper.animate([
+    { transform: 'translate(0, 0) rotate(-4deg) scale(1)', opacity: 1 },
+    { transform: `translate(${dx}px, ${dy}px) rotate(8deg) scale(.12)`, opacity: 0.2 },
+  ], { duration: 700, easing: 'cubic-bezier(.5,0,.7,.4)', fill: 'forwards' }).finished;
+  el.remove();
+}
 
 // etiqueta que surt d'un punt de la pantalla i puja (+200 €, −100 €)
 function floatLabel(text, pos, tone = 'good') {
