@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795621241';
-import { photoOf, initials } from './util.js?v=1795621241';
-import { deckName } from './data.js?v=1795621241';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795621860';
+import { photoOf, initials } from './util.js?v=1795621860';
+import { deckName } from './data.js?v=1795621860';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -2746,6 +2746,8 @@ function cardIcon(ctx, effect, value, col) {
   }
   ctx.restore();
 }
+let cardFaceImg = null;
+export const setCardFace = (img) => { cardFaceImg = img; };
 export function cardFaceCanvas(deck, card = {}) {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 720;
@@ -2793,20 +2795,31 @@ export function cardFaceCanvas(deck, card = {}) {
   ctx.shadowOffsetY = 4;
   ctx.fillText(deckName(rules(), deck).toUpperCase(), 256, 64);
   ctx.shadowColor = 'transparent';
-  // medalló amb el dibuix de l'efecte
-  ctx.beginPath(); ctx.arc(256, 168, 66, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-  ctx.lineWidth = 10; ctx.strokeStyle = col; ctx.stroke();
-  ctx.save(); ctx.translate(256, 168); ctx.scale(0.82, 0.82); cardIcon(ctx, card.effect, card.value, col); ctx.restore();
+  // medalló: una cara de la galeria (més gran) o, si no n'hi ha, el dibuix de l'efecte
+  if (cardFaceImg) {
+    const R = 100;
+    ctx.beginPath(); ctx.arc(256, 182, R, 0, Math.PI * 2); ctx.fillStyle = '#E9E4F5'; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.drawImage(cardFaceImg, 256 - R, 182 - R, R * 2, R * 2);
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(256, 182, R, 0, Math.PI * 2);
+    ctx.lineWidth = 10; ctx.strokeStyle = col; ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.arc(256, 168, 66, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.lineWidth = 10; ctx.strokeStyle = col; ctx.stroke();
+    ctx.save(); ctx.translate(256, 168); ctx.scale(0.82, 0.82); cardIcon(ctx, card.effect, card.value, col); ctx.restore();
+  }
   // text
   let s = 50;
   let lines;
+  const area = cardFaceImg ? 296 : 330;
   for (; s >= 24; s -= 2) {
     setFont(ctx, 800, s, 'semi-condensed');
     lines = wrap(ctx, card.text || '', 410);
-    if (lines.length * s * 1.2 <= 330) break;
+    if (lines.length * s * 1.2 <= area) break;
   }
   ctx.fillStyle = INK;
-  const top = 262 + (330 - lines.length * s * 1.2) / 2;
+  const top = (cardFaceImg ? 296 : 262) + (area - lines.length * s * 1.2) / 2;
   lines.forEach((l, k) => ctx.fillText(l, 256, top + s * 0.6 + k * s * 1.2));
   // què fa la carta, amb color segons si es cobra o es paga
   if (card.foot) {

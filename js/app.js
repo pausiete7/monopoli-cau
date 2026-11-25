@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795621241';
+import * as G from './engine.js?v=1795621860';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
-  icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden,
-} from './board.js?v=1795621241';
-import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795621241';
-import * as S3 from './scene.js?v=1795621241';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795621241';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795621241';
+  icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden, watchIdle, demoFaces,
+} from './board.js?v=1795621860';
+import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795621860';
+import * as S3 from './scene.js?v=1795621860';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795621860';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795621860';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -793,7 +793,7 @@ const facesHTML = () => {
     ${list.length ? `<div class="cf-strip">${shown.map((f) => `<span style="background-image:url(${f})"></span>`).join('')}${list.length > shown.length ? `<em>+${list.length - shown.length}</em>` : ''}</div>` : ''}
     <div class="cf-btns">
       <label class="btn">${icon('camera')}${list.length ? 'Canviar la carpeta' : 'Carregar carpeta de cares'}<input type="file" accept="image/*" multiple webkitdirectory data-faces hidden></label>
-      ${list.length ? '<button class="btn btn-ghost" type="button" data-nofaces>Treure les cares</button>' : ''}
+      ${list.length ? '<button class="btn" type="button" data-facedemo>Veure tots els moments</button><button class="btn btn-ghost" type="button" data-nofaces>Treure les cares</button>' : ''}
     </div>
   </div>`;
 };
@@ -1011,6 +1011,7 @@ function settingsModal(tab = 'teams') {
         if (ds.nophoto !== undefined) { setPhoto(teams[ds.nophoto].id, ''); show(); full(); }
         if (ds.noboardphoto !== undefined) { setPhoto(ds.noboardphoto, ''); show(); buildBoard(); full(); }
         if (ds.nofaces !== undefined) { saveFaces([]).then(() => show()); }
+        if (ds.facedemo !== undefined) { dlg.close(); demoFaces(); }
         if (ds.cdel !== undefined) {
           const [dk, k] = ds.cdel.split(':');
           if (draft.cards[dk].length <= 1) { toast('Cal deixar com a mínim una carta.'); return; }
@@ -1152,6 +1153,7 @@ function setupModal() {
         const b = e.target.closest('[data-noboardphoto]');
         if (b) { setPhoto(b.dataset.noboardphoto, ''); show(); buildBoard(); full(); }
         if (e.target.closest('[data-nofaces]')) saveFaces([]).then(() => show());
+        if (e.target.closest('[data-facedemo]')) { dlg.close(); demoFaces().then(setupModal); }
       });
       d.querySelector('[data-a=adv]').addEventListener('click', () => settingsModal('rules'));
       d.querySelector('[data-a=go]').addEventListener('click', () => {
@@ -1295,6 +1297,7 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- Arrencada ----------
 setMutedRef(isMuted);
+watchIdle(); // salvapantalles de cares
 S3.setSfxHook((n) => sfx[n]()); // el tauler 3D també fa sons (pols, hotel…)
 G.load();
 const boardHandlers = {

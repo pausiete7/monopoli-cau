@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795621241';
-import * as S3 from './scene.js?v=1795621241';
-import { sfx } from './sound.js?v=1795621241';
-import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795621241';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795621860';
+import * as S3 from './scene.js?v=1795621860';
+import { sfx } from './sound.js?v=1795621860';
+import { esc, photoOf, avatarStyle, avatarText, randomFace } from './util.js?v=1795621860';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -391,7 +391,8 @@ export async function playFx() {
             // estació: passa un trenet per les vies
             S3.train(e.square);
             sfx.whistle();
-            await wait(reduced() ? 0 : 1300);
+            // amb galeria de cares: passa un tren gran amb cares a les finestres
+            if (!await faceTrain(sq(e.square).name)) await wait(reduced() ? 0 : 1300);
           } else await wait(reduced() ? 0 : 250);
           break;
         case 'money': {
@@ -420,6 +421,8 @@ export async function playFx() {
             S3.refresh(true);
             await flyDeed(e.square, e.team, e.from ?? null);
             renderTeams();
+            // compra: una cara diu «Meu!»
+            await faceMoment('buy', { title: sq(e.square).name, sub: team(e.team).name, color: team(e.team).color, extra: '<span class="fp-bubble">Meu!</span>' });
           } else if (e.via === 'trade') {
             // intercanvi: el títol passa d'una targeta a l'altra
             S3.refresh(true);
@@ -437,6 +440,16 @@ export async function playFx() {
           S3.refresh(true);
           sfx.build();
           await wait(reduced() ? 0 : 650);
+          // hotel nou: una cara al rètol de l'hotel
+          if (e.hotel) await faceMoment('hotel', { title: `Hotel ${shortName(team(e.team).name)}`, sub: sq(e.square).name, color: team(e.team).color, extra: '<span class="fp-sign">HOTEL</span>' });
+          break;
+        case 'free':
+          // surt de la presó: els barrots s'obren
+          await faceMoment('free', { title: 'Lliure!', sub: team(e.team).name, color: team(e.team).color, extra: '<span class="fp-bars"><i></i><i></i><i></i><i></i></span>', sound: 'good' });
+          break;
+        case 'broke':
+          // es queda en negatiu
+          await faceMoment('broke', { title: 'Ai, ai, ai…', sub: `${team(e.team).name} està en negatiu`, color: team(e.team).color, sound: 'bad' });
           break;
         case 'banner':
           // «A la presó!» amb galeria de cares: cartell de BUSCAT amb una cara a l'atzar
@@ -444,6 +457,8 @@ export async function playFx() {
             const face = randomFace();
             if (face) { sfx.jail(); await wanted(e.team, face); break; }
           }
+          // fallida, pot, subhasta i intercanvi: amb cares, en lloc del cartell
+          if (await bannerFace(e)) break;
           if (/presó/i.test(e.text)) sfx.jail();
           else if (/fallida/i.test(e.text)) sfx.bankrupt();
           else if (/^guanya/i.test(e.text)) sfx.winner();
@@ -470,6 +485,8 @@ export async function playFx() {
           sfx.coins();
           floatLabel(`+${money(e.amount)}`, S3.screenPos(0), 'good');
           await wait(reduced() ? 0 : 900);
+          // una cara surt disparada amb els diners de la Sortida
+          await faceMoment('go', { title: `+${money(e.amount)}`, sub: `${team(e.team).name} passa per la Sortida`, color: team(e.team).color });
           break;
         case 'tax':
           // Multa: segell vermell que cau sobre la cantonada
@@ -519,7 +536,18 @@ export async function playFx() {
   }
 }
 
-export const drawCardFx = (deck, card) => S3.drawCard(deck, card);
+// cada carta porta una cara al medalló (si hi ha galeria)
+export async function drawCardFx(deck, card) {
+  const url = randomFace();
+  let img = null;
+  if (url) {
+    img = new Image();
+    img.src = url;
+    try { await img.decode(); } catch { img = null; }
+  }
+  S3.setCardFace(img);
+  return S3.drawCard(deck, card);
+}
 
 // cartell de l'Oest: cau al mig de la pantalla i després se'n va volant cap a la presó
 const CRIMES = ['Per mal rotllet', 'Per robar xuxes', 'Per no fregar les olles', 'Per roncar a la tenda', 'Per perdre el fular', 'Per arribar tard a la formació'];
@@ -555,6 +583,181 @@ async function wanted(k, face) {
     { transform: `translate(${dx}px, ${dy}px) rotate(8deg) scale(.12)`, opacity: 0.2 },
   ], { duration: 700, easing: 'cubic-bezier(.5,0,.7,.4)', fill: 'forwards' }).finished;
   el.remove();
+}
+
+// ---------- Salvapantalles: si ningú toca res durant un minut, les cares reboten ----------
+const SAVER_AFTER = 60000;
+let saverTimer = null;
+let saverEl = null;
+let saverRaf = 0;
+let swallowClick = false;
+function saverStop() {
+  if (!saverEl) return;
+  cancelAnimationFrame(saverRaf);
+  saverEl.remove();
+  saverEl = null;
+}
+function saverReset() {
+  clearTimeout(saverTimer);
+  saverTimer = setTimeout(saverStart, SAVER_AFTER);
+}
+export function saverStart() {
+  if (reduced() || saverEl) return;
+  if (playing) { saverReset(); return; }
+  const list = Array.from({ length: 7 }, () => randomFace()).filter(Boolean);
+  if (!list.length) return;
+  saverEl = document.createElement('div');
+  saverEl.className = 'fsaver';
+  saverEl.innerHTML = list.map((f) => `<span style="background-image:url(${f})"></span>`).join('');
+  document.body.appendChild(saverEl);
+  const size = Math.round(Math.min(innerWidth, innerHeight) * 0.24);
+  const dir = () => (Math.random() < 0.5 ? -1 : 1) * (2.2 + Math.random() * 2);
+  const items = [...saverEl.children].map((n) => {
+    n.style.width = n.style.height = `${size}px`;
+    return { n, x: Math.random() * (innerWidth - size), y: Math.random() * (innerHeight - size), vx: dir(), vy: dir(), r: 0, vr: (Math.random() - 0.5) * 1.6 };
+  });
+  const step = () => {
+    const W = innerWidth - size;
+    const H = innerHeight - size;
+    items.forEach((o) => {
+      o.x += o.vx; o.y += o.vy; o.r += o.vr;
+      if (o.x < 0 || o.x > W) { o.vx *= -1; o.x = Math.max(0, Math.min(W, o.x)); }
+      if (o.y < 0 || o.y > H) { o.vy *= -1; o.y = Math.max(0, Math.min(H, o.y)); }
+      o.n.style.transform = `translate(${o.x}px, ${o.y}px) rotate(${o.r}deg)`;
+    });
+    saverRaf = requestAnimationFrame(step);
+  };
+  step();
+}
+// qualsevol moviment o tecla treu el salvapantalles (i el clic que el treu no prem cap botó)
+export function watchIdle() {
+  ['pointerdown', 'pointermove', 'keydown', 'wheel'].forEach((ev) => window.addEventListener(ev, (e) => {
+    if (saverEl) {
+      if (e.type !== 'pointermove') { e.preventDefault(); e.stopPropagation(); if (e.type === 'pointerdown') swallowClick = true; }
+      saverStop();
+    }
+    saverReset();
+  }, { capture: true }));
+  window.addEventListener('click', (e) => { if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); } }, { capture: true });
+  saverReset();
+}
+
+// ---------- Prova: tots els moments amb cara, un darrere l'altre ----------
+export async function demoFaces() {
+  if (playing) return;
+  playing = true;
+  document.body.classList.add('busy');
+  const T0 = state.teams[0];
+  const T1 = state.teams[1] || T0;
+  const b = state.config.board;
+  const station = Math.max(0, b.findIndex((s) => s.type === 'station'));
+  const prop = Math.max(0, b.findIndex((s) => s.type === 'prop'));
+  const card = state.config.cards.bad[0] || { text: 'Carta de prova' };
+  const steps = [
+    ['Anar a la presó', () => { sfx.jail(); return wanted(0, randomFace()); }],
+    ['Caure en una estació', () => { S3.train(station); sfx.whistle(); return faceTrain(b[station].name); }],
+    ['Treure una carta', async () => { sfx.flip(); await drawCardFx('bad', { text: card.text, effect: card.effect, value: card.value, foot: '' }); await wait(2500); S3.dropCard(); }],
+    ['Comprar una casella', () => { sfx.stamp(); return faceMoment('buy', { title: b[prop].name, sub: T0.name, color: T0.color, extra: '<span class="fp-bubble">Meu!</span>' }); }],
+    ['Construir un hotel', () => { sfx.hotel(); return faceMoment('hotel', { title: `Hotel ${shortName(T0.name)}`, sub: b[prop].name, color: T0.color, extra: '<span class="fp-sign">HOTEL</span>' }); }],
+    ['Guanyar una subhasta', () => faceMoment('auction', { sound: 'gavel', title: 'Adjudicat!', sub: `${b[prop].name} per ${money(180)}`, color: T1.color, extra: `<span class="fp-gavel">${icon('gavel')}</span>` })],
+    ['Sortir de la presó', () => faceMoment('free', { sound: 'good', title: 'Lliure!', sub: T1.name, color: T1.color, extra: '<span class="fp-bars"><i></i><i></i><i></i><i></i></span>' })],
+    ['Passar per la Sortida', () => { sfx.coins(); return faceMoment('go', { title: `+${money(rules().goSalary)}`, sub: `${T0.name} passa per la Sortida`, color: T0.color }); }],
+    ['Quedar-se en negatiu', () => faceMoment('broke', { sound: 'bad', title: 'Ai, ai, ai…', sub: `${T1.name} està en negatiu`, color: T1.color })],
+    ['Fer un intercanvi', () => faceMoment('trade', { sound: 'good', title: 'Tracte fet!', sub: `${T0.name} i ${T1.name}`, color: T0.color, faces: 2 })],
+    ["Emportar-se el pot del Pàrquing", () => faceMoment('pot', { sound: 'good', title: "S'emporta el pot!", sub: `${T0.name}: ${money(250)}`, color: T0.color })],
+    ['Fer fallida', () => faceMoment('fallida', { sound: 'bankrupt', title: T1.name, sub: 'Queda fora del Caupoli', color: T1.color, extra: '<span class="fp-stamp">FALLIDA</span>' })],
+  ];
+  try {
+    for (let k = 0; k < steps.length; k++) {
+      toast(`${k + 1} de ${steps.length + 1}: ${steps[k][0]}`);
+      await wait(900);
+      await steps[k][1]();
+      await wait(500);
+    }
+    toast(`${steps.length + 1} de ${steps.length + 1}: Salvapantalles (surt sol després d'un minut sense tocar res). Moveu el ratolí per treure'l.`);
+    await wait(1200);
+  } finally {
+    playing = false;
+    document.body.classList.remove('busy');
+  }
+  saverStart();
+}
+
+// ---------- Cares que surten en moments de la partida ----------
+// Cada cara es queda uns 2 segons quieta perquè tothom la vegi bé.
+const FACE_HOLD = 2000;
+const shortName = (n) => String(n || '').replace(/^Equip\s+/i, '').trim() || n;
+
+// targeta amb una o dues cares; retorna false si no hi ha galeria (llavors es fa l'efecte de sempre)
+export async function faceMoment(kind, { title, sub = '', color = '#2D7FF9', extra = '', faces = 1, sound = null }) {
+  if (reduced()) return false;
+  const list = Array.from({ length: faces }, () => randomFace()).filter(Boolean);
+  if (list.length < faces) return false;
+  if (sound) sfx[sound]?.();
+  const el = document.createElement('div');
+  el.className = `fpop fp-${kind}`;
+  el.style.setProperty('--tc', color);
+  el.innerHTML = `<div class="fp-card">
+    <div class="fp-faces">${extra}${list.map((f) => `<span class="fp-face" style="background-image:url(${f})"></span>`).join('')}</div>
+    <b class="fp-title">${esc(title)}</b>${sub ? `<span class="fp-sub">${esc(sub)}</span>` : ''}</div>`;
+  $('#fx').appendChild(el);
+  const card = el.firstElementChild;
+  await card.animate([
+    { transform: 'scale(.2) rotate(-10deg)', opacity: 0 },
+    { transform: 'scale(1.08) rotate(2deg)', opacity: 1, offset: 0.7 },
+    { transform: 'scale(1) rotate(-2deg)', opacity: 1 },
+  ], { duration: 450, easing: 'cubic-bezier(.3,.9,.4,1.2)', fill: 'forwards' }).finished;
+  await wait(FACE_HOLD);
+  await card.animate([
+    { transform: 'scale(1) rotate(-2deg)', opacity: 1 },
+    { transform: 'translateY(-40px) scale(.85) rotate(-2deg)', opacity: 0 },
+  ], { duration: 350, easing: 'ease-in', fill: 'forwards' }).finished;
+  el.remove();
+  return true;
+}
+
+// els cartells grans de fallida, pot, subhasta i intercanvi passen a portar cares
+async function bannerFace(e) {
+  const T = e.team != null ? team(e.team) : null;
+  if (!T) return false;
+  if (e.text === 'Fallida!') {
+    return faceMoment('fallida', { sound: 'bankrupt', title: T.name, sub: 'Queda fora del Caupoli', color: T.color, extra: '<span class="fp-stamp">FALLIDA</span>' });
+  }
+  if (/^Pot del Pàrquing/.test(e.text)) {
+    return faceMoment('pot', { sound: 'good', title: "S'emporta el pot!", sub: `${T.name}: ${e.text.replace(/^Pot del Pàrquing:\s*/, '')}`, color: T.color });
+  }
+  if (e.text === 'Adjudicat!') {
+    return faceMoment('auction', { sound: 'gavel', title: 'Adjudicat!', sub: e.sub, color: T.color, extra: `<span class="fp-gavel">${icon('gavel')}</span>` });
+  }
+  if (e.text === 'Tracte fet!') {
+    return faceMoment('trade', { sound: 'good', title: 'Tracte fet!', sub: e.sub, color: T.color, faces: 2 });
+  }
+  return false;
+}
+
+// tren gran que creua la pantalla amb una cara a cada finestra
+export async function faceTrain(station) {
+  if (reduced()) return false;
+  const list = [randomFace(), randomFace(), randomFace(), randomFace(), randomFace()].filter(Boolean);
+  if (!list.length) return false;
+  const el = document.createElement('div');
+  el.className = 'ftrain';
+  el.innerHTML = `<div class="ft-sign">${esc(station)}</div>
+    <div class="ft-train">
+      <div class="ft-car ft-loco"><span class="ft-light"></span></div>
+      ${[list.slice(0, 2), list.slice(2)].map((cw) => `<div class="ft-car">${cw.map((f) => `<span class="ft-win" style="background-image:url(${f})"></span>`).join('')}</div>`).join('')}
+    </div>`;
+  $('#fx').appendChild(el);
+  const tr = el.querySelector('.ft-train');
+  const w = tr.offsetWidth;
+  const vw = window.innerWidth;
+  // entra, s'atura 2 segons al mig (com a l'andana) i se'n va
+  const mid = (vw - w) / 2;
+  await tr.animate([{ transform: `translateX(${vw}px)` }, { transform: `translateX(${mid}px)` }], { duration: 900, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }).finished;
+  await wait(FACE_HOLD);
+  await tr.animate([{ transform: `translateX(${mid}px)` }, { transform: `translateX(${-w - 40}px)` }], { duration: 800, easing: 'cubic-bezier(.6,0,.8,.4)', fill: 'forwards' }).finished;
+  el.remove();
+  return true;
 }
 
 // etiqueta que surt d'un punt de la pantalla i puja (+200 €, −100 €)

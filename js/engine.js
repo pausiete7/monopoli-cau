@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795621241';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795621860';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -197,11 +197,14 @@ function transfer(from, to, amount, reason) {
   if (!amount) return;
   // només les multes van al pot del Pàrquing (no les compres ni les cases)
   if (to === 'bank' && rules().parkingPot && POT_REASONS.includes(reason) && state.config.board.some((s) => s.type === 'parking')) to = 'pot';
+  const wasOk = typeof from === 'number' && team(from).money >= 0;
   if (typeof from === 'number') team(from).money -= amount;
   else if (from === 'pot') state.pot -= amount;
   if (typeof to === 'number') team(to).money += amount;
   else if (to === 'pot') state.pot += amount;
   push({ type: 'money', from, to, amount, reason });
+  // es queda en números vermells: cara de «Ai, ai, ai…»
+  if (wasOk && team(from).money < 0) push({ type: 'broke', team: from });
 }
 
 const name = (t) => team(t).name;
@@ -324,6 +327,7 @@ export function roll(n) {
     const max = Math.max(1, R.jailMaxTurns || 3);
     if (R.jailRoll && n === R.jailExitRoll) {
       T.jail = false; T.jailTurns = 0;
+      push({ type: 'free', team: t });
       log(`${T.name} treu un ${n} i surt de la presó.`, 'good');
     } else {
       T.jailTurns++;
@@ -335,6 +339,7 @@ export function roll(n) {
           log(`${T.name} ja ha complert ${max} ${max === 1 ? 'torn' : 'torns'} a la presó i surt.`, 'info');
         }
         T.jail = false; T.jailTurns = 0;
+        push({ type: 'free', team: t });
       } else {
         log(`${T.name} treu un ${n} i es queda a la presó (torn ${T.jailTurns} de ${max}).`, 'info');
         state.phase = 'end';
@@ -359,6 +364,7 @@ export function payJail() {
   checkpoint();
   transfer(t, 'bank', rules().jailFine, 'presó');
   T.jail = false; T.jailTurns = 0;
+  push({ type: 'free', team: t });
   log(`${T.name} paga ${money(rules().jailFine)} i surt de la presó. Ara ha de tirar.`, 'info');
   save();
 }
@@ -369,6 +375,7 @@ export function useJailCard() {
   if (!T.jail || !T.jailCards || state.phase !== 'roll') return;
   checkpoint();
   T.jailCards--; T.jail = false; T.jailTurns = 0;
+  push({ type: 'free', team: t });
   log(`${T.name} fa servir la carta i surt de la presó. Ara ha de tirar.`, 'good');
   save();
 }
@@ -620,7 +627,7 @@ export function build(i) {
   const o = state.owners[i];
   o.houses++;
   transfer(o.team, 'bank', sq(i).house, 'construcció');
-  push({ type: 'build', square: i });
+  push({ type: 'build', square: i, team: o.team, hotel: o.houses === 5 });
   log(`${name(o.team)} construeix ${o.houses === 5 ? 'un hotel' : 'una casa'} a ${sq(i).name}.`, 'good');
   save();
   return null;
@@ -735,7 +742,7 @@ export function trade({ a, b, aProps, bProps, aMoney, bMoney }) {
     const groups = new Set(propsOf(t).map((i) => sq(i).group).filter(Boolean));
     groups.forEach((g) => { if (ownsGroup(t, g) && [...aProps, ...bProps].some((i) => sq(i).group === g)) push({ type: 'confetti', team: t }); });
   });
-  push({ type: 'banner', text: 'Tracte fet!', tone: 'good', team: a, sub: `${name(a)} i ${name(b)}` });
+  push({ type: 'banner', text: 'Tracte fet!', tone: 'good', team: a, team2: b, sub: `${name(a)} i ${name(b)}` });
   save();
   return null;
 }
@@ -755,7 +762,7 @@ export function toggleJail(t) {
   if (out(t)) return;
   checkpoint();
   const T = team(t);
-  if (T.jail) { T.jail = false; T.jailTurns = 0; log(`${T.name} surt de la presó.`, 'info'); }
+  if (T.jail) { T.jail = false; T.jailTurns = 0; push({ type: 'free', team: t }); log(`${T.name} surt de la presó.`, 'info'); }
   else sendToJail(t);
   save();
 }

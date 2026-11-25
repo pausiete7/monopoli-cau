@@ -1098,3 +1098,153 @@ input[type=range] { width: 100%; accent-color: var(--red); }
 }
 .wt-name { font: 900 clamp(26px, 2.8vw, 38px)/1 var(--f-display); color: var(--tc); text-shadow: 0 2px 0 rgba(0, 0, 0, .25); }
 .wt-reward { font-weight: 700; font-size: clamp(15px, 1.4vw, 19px); border-top: 2px dashed rgba(59, 36, 20, .45); padding-top: 8px; margin-top: 4px; }
+
+/* ---------- Cares en moments de la partida ---------- */
+.fpop { position: fixed; inset: 0; z-index: 41; display: grid; place-items: center; pointer-events: none; }
+.fp-card {
+  display: grid; justify-items: center; gap: 8px;
+  min-width: min(380px, 80vw);
+  padding: 26px 40px 24px;
+  border-radius: 34px;
+  border: 8px solid var(--tc);
+  background: #fff;
+  color: var(--ink);
+  text-align: center;
+  box-shadow: 0 12px 0 rgba(0, 0, 0, .2), 0 30px 80px rgba(0, 0, 0, .55);
+  opacity: 0;
+}
+.fp-faces { position: relative; display: flex; justify-content: center; }
+.fp-face {
+  width: min(300px, 36vh); aspect-ratio: 1;
+  border-radius: 50%;
+  border: 6px solid var(--tc);
+  background: #EDEAF6 center / cover;
+}
+.fp-title { font: 900 clamp(34px, 4.2vw, 66px)/1 var(--f-display); font-variation-settings: 'wdth' 110; }
+.fp-sub { font-weight: 700; font-size: clamp(16px, 1.6vw, 24px); opacity: .75; }
+
+/* compra: bafarada «Meu!» */
+.fp-bubble {
+  position: absolute; right: -54px; top: -6px; z-index: 2;
+  padding: 10px 22px 14px;
+  border-radius: 26px;
+  border: 5px solid var(--ink);
+  background: #fff;
+  font: 900 clamp(36px, 3.6vw, 54px)/1 var(--f-display);
+  transform: rotate(10deg) scale(0);
+  animation: fp-pop .35s .45s var(--ease-out, ease-out) forwards;
+}
+.fp-bubble::after { content: ''; position: absolute; left: 18px; bottom: -22px; border: 12px solid transparent; border-top: 16px solid var(--ink); }
+@keyframes fp-pop { to { transform: rotate(10deg) scale(1); } }
+
+/* hotel: rètol lluminós a sobre */
+.fp-hotel .fp-card { background: linear-gradient(180deg, #3A2350, #22163A); color: #fff; }
+.fp-hotel .fp-title { color: #FFD84D; }
+.fp-sign {
+  position: absolute; top: -78px; left: 50%; z-index: 2;
+  transform: translateX(-50%);
+  padding: 6px 26px;
+  border-radius: 14px;
+  border: 4px solid #FF5A6E;
+  color: #FFE3E7;
+  font: 900 clamp(34px, 3.4vw, 50px)/1 var(--f-display);
+  letter-spacing: .12em;
+  text-shadow: 0 0 8px #FF5A6E, 0 0 22px #FF2D4A;
+  box-shadow: 0 0 18px #FF2D4A, inset 0 0 14px rgba(255, 45, 74, .5);
+  background: #2A1030;
+  animation: fp-neon 1.4s .4s steps(1) 2;
+}
+@keyframes fp-neon { 0%, 100% { opacity: 1; } 10% { opacity: .3; } 14% { opacity: 1; } 22% { opacity: .5; } 26% { opacity: 1; } }
+
+/* subhasta: el martell pica tres cops */
+.fp-gavel {
+  position: absolute; left: -96px; top: 18%; z-index: 2;
+  width: 120px; height: 120px;
+  color: var(--ink);
+  transform-origin: 85% 85%;
+  animation: fp-knock .4s .5s ease-in 3;
+}
+.fp-gavel svg { width: 100%; height: 100%; }
+@keyframes fp-knock { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-38deg); } }
+
+/* sortir de la presó: els barrots s'obren */
+.fp-bars { position: absolute; inset: 0; z-index: 2; border-radius: 50%; overflow: hidden; }
+.fp-bars i { position: absolute; top: 0; bottom: 0; width: 9%; background: linear-gradient(90deg, #3C3F55, #9EA3BC 45%, #3C3F55); border-radius: 6px; }
+.fp-bars i:nth-child(1) { left: 14%; animation: fp-bar-l .6s .9s ease-in forwards; }
+.fp-bars i:nth-child(2) { left: 36%; animation: fp-bar-l .6s .9s ease-in forwards; }
+.fp-bars i:nth-child(3) { left: 56%; animation: fp-bar-r .6s .9s ease-in forwards; }
+.fp-bars i:nth-child(4) { left: 78%; animation: fp-bar-r .6s .9s ease-in forwards; }
+@keyframes fp-bar-l { to { transform: translateX(-420%); opacity: 0; } }
+@keyframes fp-bar-r { to { transform: translateX(420%); opacity: 0; } }
+.fp-free .fp-title { color: #1E9E52; }
+
+/* Sortida: la cara arriba fent voltes */
+.fp-go .fp-card { background: linear-gradient(180deg, #FFF6CF, #FFE27A); }
+.fp-go .fp-face { animation: fp-spin .7s .1s ease-out both; }
+.fp-go .fp-title { color: #167A3F; font-size: clamp(48px, 6vw, 92px); }
+@keyframes fp-spin { from { transform: rotate(-540deg) scale(.3); } to { transform: rotate(0) scale(1); } }
+
+/* en negatiu: la cara tremola */
+.fp-broke .fp-card { background: #FFF1EE; }
+.fp-broke .fp-face { animation: fp-shake .45s .4s ease-in-out 4; }
+.fp-broke .fp-title { color: #C9302C; }
+@keyframes fp-shake { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-14px) rotate(-6deg); } 75% { transform: translateX(14px) rotate(6deg); } }
+
+/* intercanvi: dues cares que xoquen */
+.fp-trade .fp-face { width: min(240px, 30vh); }
+.fp-trade .fp-face:first-of-type { margin-right: -24px; animation: fp-in-l .6s .2s cubic-bezier(.3, 1.4, .5, 1) both; }
+.fp-trade .fp-face:last-of-type { animation: fp-in-r .6s .2s cubic-bezier(.3, 1.4, .5, 1) both; }
+@keyframes fp-in-l { from { transform: translateX(-60vw) rotate(-30deg); } }
+@keyframes fp-in-r { from { transform: translateX(60vw) rotate(30deg); } }
+
+/* pot del Pàrquing */
+.fp-pot .fp-card { background: linear-gradient(180deg, #FFE98A, #FFD84D); border-color: #C79A00; }
+
+/* fallida: segell vermell damunt la cara */
+.fp-fallida .fp-face { filter: grayscale(1) contrast(1.1); }
+.fp-stamp {
+  position: absolute; left: 50%; top: 50%; z-index: 2;
+  padding: 4px 18px 8px;
+  border: 8px solid #D7262B;
+  border-radius: 14px;
+  color: #D7262B;
+  background: rgba(255, 255, 255, .55);
+  font: 900 clamp(44px, 4.6vw, 70px)/1 var(--f-display);
+  letter-spacing: .04em;
+  transform: translate(-50%, -50%) rotate(-18deg) scale(3);
+  opacity: 0;
+  animation: fp-stamp .3s .55s ease-in forwards;
+}
+@keyframes fp-stamp { to { transform: translate(-50%, -50%) rotate(-18deg) scale(1); opacity: 1; } }
+
+/* estació: tren gran amb cares a les finestres */
+.ftrain { position: fixed; left: 0; right: 0; bottom: 16vh; z-index: 41; pointer-events: none; }
+.ft-sign {
+  position: absolute; left: 50%; bottom: calc(100% + 18px);
+  transform: translateX(-50%);
+  padding: 8px 26px;
+  border-radius: 12px;
+  border: 4px solid #fff;
+  background: #2A6FB0;
+  color: #fff;
+  font: 900 clamp(22px, 2.2vw, 34px)/1 var(--f-display);
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+}
+.ft-train { display: flex; align-items: flex-end; gap: 10px; width: max-content; transform: translateX(110vw); }
+.ft-car {
+  position: relative;
+  display: flex; gap: 14px;
+  padding: 18px 22px 30px;
+  border-radius: 22px 22px 12px 12px;
+  background: linear-gradient(180deg, #F5F5FA 0 62%, #E8473B 62% 74%, #F5F5FA 74%);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .45);
+}
+.ft-car::after { content: ''; position: absolute; left: 30px; right: 30px; bottom: -14px; height: 26px; background: radial-gradient(circle at 13px 13px, #1C1A3A 11px, transparent 12px) left / 50% 100% no-repeat, radial-gradient(circle at calc(100% - 13px) 13px, #1C1A3A 11px, transparent 12px) right / 50% 100% no-repeat; }
+.ft-win { width: min(170px, 19vh); aspect-ratio: 1; border-radius: 18px; border: 5px solid #1C2756; background: #BFD6F0 center / cover; }
+.ft-loco { width: min(200px, 22vh); height: min(230px, 26vh); border-radius: 90px 22px 12px 12px; background: linear-gradient(180deg, #E8473B 0 30%, #1C2756 30% 55%, #F5F5FA 55% 62%, #E8473B 62% 74%, #F5F5FA 74%); }
+.ft-light { position: absolute; left: 14px; bottom: 42px; width: 26px; height: 18px; border-radius: 6px; background: #FFE7A0; box-shadow: 0 0 18px #FFC94D; }
+
+/* salvapantalles */
+.fsaver { position: fixed; inset: 0; z-index: 90; background: rgba(20, 18, 50, .78); cursor: none; overflow: hidden; }
+.fsaver span { position: absolute; left: 0; top: 0; border-radius: 50%; background: #EDEAF6 center / cover; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); border: 6px solid #fff; }
