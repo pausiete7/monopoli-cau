@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795608270';
-import { photoOf, initials } from './util.js?v=1795608270';
-import { deckName } from './data.js?v=1795608270';
+import { state, sq, N, team, money, rentFor, rules } from './engine.js?v=1795609586';
+import { photoOf, initials } from './util.js?v=1795609586';
+import { deckName } from './data.js?v=1795609586';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1131,6 +1131,7 @@ export function buildBoard() {
   Object.values(houses).forEach((list) => list.forEach((m) => scene.remove(m)));
   Object.keys(houses).forEach((k) => delete houses[k]);
   Object.keys(mortMarks).forEach((k) => { scene.remove(mortMarks[k]); delete mortMarks[k]; });
+  Object.keys(flags).forEach((k) => { scene.remove(flags[k].group); delete flags[k]; });
   displayPos = null;
   avatarKeys.length = 0;
   refresh(false);
@@ -1226,6 +1227,7 @@ function loop(now) {
     });
   });
   updateHalo(now);
+  if (!reduced()) waveFlags(now);
   // les gàbies segueixen la seva fitxa
   Object.entries(cages).forEach(([k, g]) => { const p = pawns[k]; if (p) { g.position.x = p.position.x; g.position.z = p.position.z; } });
   // la càmera segueix el punt d'interès amb suavitat (sense salts)
@@ -1487,6 +1489,7 @@ export function refresh(animateHouses = false) {
       } else old.forEach((m) => scene.remove(m));
     }
   }
+  syncFlags(animateHouses);
   // piles de cartes
   ['good', 'bad'].forEach((d) => {
     const n = state.decks[d].length;
@@ -1496,6 +1499,121 @@ export function refresh(animateHouses = false) {
       decks[d].topMat.map = deckTexture(d, n);
       decks[d].topMat.needsUpdate = true;
     }
+  });
+}
+
+// ---------- Banderes de grup complet (E3) ----------
+// Quan un equip té totes les propietats d'un color, hi oneja una bandera seva entre les caselles,
+// just a dins del tauler (no tapa cap casella).
+const flags = {};
+const FLAG_S = 1.3;
+let poleGeo = null;
+function flagTexture(t) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 168;
+  const g = c.getContext('2d');
+  g.fillStyle = t.color;
+  g.fillRect(0, 0, 256, 168);
+  g.fillStyle = 'rgba(255,255,255,.9)';
+  g.fillRect(0, 128, 256, 14);
+  setFont(g, 900, 78, 'normal');
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = '#fff';
+  g.shadowColor = 'rgba(0,0,0,.3)';
+  g.shadowOffsetY = 3;
+  g.fillText(initials(t.name), 128, 70);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+function makeFlag(t) {
+  poleGeo = poleGeo || new THREE.CylinderGeometry(0.014, 0.018, 0.8, 10);
+  const g = new THREE.Group();
+  const metal = tokMat('metal', { color: 0xC9CDDA, metalness: 0.85, roughness: 0.3 });
+  const pole = new THREE.Mesh(poleGeo, metal);
+  pole.position.y = 0.4;
+  pole.castShadow = true;
+  g.add(pole);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.032, 14, 10), tokMat('gold', { color: 0xFFC83D, metalness: 0.8, roughness: 0.3 }));
+  ball.position.y = 0.82;
+  g.add(ball);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.03, 18), metal);
+  foot.position.y = 0.015;
+  g.add(foot);
+  const geo = new THREE.PlaneGeometry(0.44, 0.29, 16, 4);
+  geo.translate(0.22, 0, 0);
+  const cloth = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: flagTexture(t), side: THREE.DoubleSide, roughness: 0.7 }));
+  cloth.castShadow = true;
+  cloth.position.set(0.015, 0.64, 0);
+  g.add(cloth);
+  g.userData = { cloth, base: Float32Array.from(geo.attributes.position.array), phase: Math.random() * 6 };
+  return g;
+}
+function groupsOf() {
+  const out = {};
+  state.config.board.forEach((s, i) => { if (s.type === 'prop') (out[s.group] = out[s.group] || []).push(i); });
+  return out;
+}
+function flagSpot(list) {
+  const h = L() / 2;
+  const cs = list.map((i) => center(rect(i)));
+  const mx = cs.reduce((a, c) => a + c.x, 0) / cs.length;
+  const mz = cs.reduce((a, c) => a + c.z, 0) / cs.length;
+  const side = rect(list[0]).side;
+  const inset = C + 0.24;
+  if (side === 'b') return { x: mx, z: h - inset };
+  if (side === 't') return { x: mx, z: -h + inset };
+  if (side === 'l') return { x: -h + inset, z: mz };
+  return { x: h - inset, z: mz };
+}
+function syncFlags(animate) {
+  const gs = groupsOf();
+  Object.entries(gs).forEach(([gk, list]) => {
+    const o0 = state.owners[list[0]];
+    const full = o0 && !team(o0.team).bankrupt && list.every((i) => state.owners[i] && state.owners[i].team === o0.team);
+    const key = full ? `${o0.team}|${team(o0.team).color}|${team(o0.team).name}` : null;
+    const cur = flags[gk];
+    if (cur && cur.key !== key) {
+      const old = cur.group;
+      delete flags[gk];
+      if (animate && !reduced()) {
+        tween(400, (p) => { old.scale.setScalar(FLAG_S * (1 - p)); }, ease.inOut).then(() => scene.remove(old));
+      } else scene.remove(old);
+    }
+    if (key && !flags[gk]) {
+      const t = team(o0.team);
+      const f = makeFlag(t);
+      const s = flagSpot(list);
+      f.position.set(s.x, 0, s.z);
+      f.scale.setScalar(FLAG_S);
+      scene.add(f);
+      flags[gk] = { group: f, key };
+      if (animate && !reduced()) {
+        // la bandera puja pel pal, amb espurnes
+        const cloth = f.userData.cloth;
+        f.scale.setScalar(0.001);
+        tween(300, (p) => { f.scale.setScalar(FLAG_S * ease.back(p)); }, ease.linear).then(() => {
+          cloth.position.y = 0.1;
+          tween(900, (p) => { cloth.position.y = 0.1 + 0.54 * p; }, ease.out);
+          sfxHook?.('good');
+          setTimeout(() => sparkle(s.x, s.z, 22, 1.1), 700);
+        });
+      }
+    }
+  });
+}
+function waveFlags(now) {
+  Object.values(flags).forEach(({ group }) => {
+    const { cloth, base, phase } = group.userData;
+    const pos = cloth.geometry.attributes.position;
+    for (let v = 0; v < pos.count; v++) {
+      const x = base[v * 3];
+      const k = x / 0.44;
+      pos.array[v * 3 + 2] = Math.sin(x * 14 - now / 170 + phase) * 0.035 * k;
+      pos.array[v * 3 + 1] = base[v * 3 + 1] - k * k * 0.02;
+    }
+    pos.needsUpdate = true;
   });
 }
 
