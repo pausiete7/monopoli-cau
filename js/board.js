@@ -1,8 +1,8 @@
 // Interfície al voltant del tauler: equips, barra de torns, safata del dau i efectes.
-import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795613203';
-import * as S3 from './scene.js?v=1795613203';
-import { sfx } from './sound.js?v=1795613203';
-import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795613203';
+import { state, fx, sq, team, current, money, propsOf, canUndo, rules } from './engine.js?v=1795613462';
+import * as S3 from './scene.js?v=1795613462';
+import { sfx } from './sound.js?v=1795613462';
+import { esc, photoOf, avatarStyle, avatarText } from './util.js?v=1795613462';
 
 export { esc };
 const $ = (s, r = document) => r.querySelector(s);
@@ -74,16 +74,47 @@ function dieFace(n) {
   return pos.map((p) => `<span class="pip" style="grid-area:${Math.ceil(p / 3)} / ${((p - 1) % 3) + 1}"></span>`).join('');
 }
 
+// ---------- Targeta del guanyador al centre del tauler ----------
+// Surt quan s'acaben els focs artificials: foto de l'equip en gran, el nom i «Nova partida».
+let celebrating = false;
+let winnerHidden = false;
+export function renderWinnerCard() {
+  const stage = $('#stage');
+  let el = $('#wincard');
+  const w = state.winner;
+  const W = w !== undefined && w !== null ? team(w) : null;
+  if (!W || celebrating || winnerHidden) { el?.remove(); return; }
+  if (el && el.dataset.team === String(w)) return;
+  el?.remove();
+  el = document.createElement('div');
+  el.id = 'wincard';
+  el.className = 'wincard';
+  el.dataset.team = String(w);
+  el.style.setProperty('--tc', W.color);
+  el.innerHTML = `<span class="wc-photo" style="${avatarStyle(W)}">${avatarText(W)}</span>
+    <span class="wc-label">${icon('trophy')}Guanya el Caupoli</span>
+    <b class="wc-name">${esc(W.name)}</b>
+    <span class="wc-acts"><button class="btn btn-ghost" type="button" data-act="hidewinner">Veure el tauler</button>
+    <button class="btn btn-primary btn-big" type="button" data-act="restart">Nova partida</button></span>`;
+  stage.appendChild(el);
+}
+export function winnerCelebration() {
+  celebrating = true;
+  winnerHidden = false;
+  renderWinnerCard();
+  setTimeout(() => { celebrating = false; renderWinnerCard(); }, reduced() ? 0 : 6200);
+}
+export function setWinnerHidden(v) { winnerHidden = v; renderWinnerCard(); }
+
 export function renderDock() {
   const T = current();
   const r = rules();
   const pending = state.queue.length > 0;
   let main = '';
   if (state.winner !== undefined && team(state.winner)) {
-    const W = team(state.winner);
+    // el guanyador surt en gran al centre del tauler; aquí només queda un recordatori
     main = `<div class="dock-msg">Partida acabada</div>
-      <div class="winner" style="--tc:${W.color}"><span class="tc-av" style="${avatarStyle(W)}">${avatarText(W)}</span><b>Guanya ${esc(W.name)}!</b></div>
-      <button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="restart">Nova partida</button>`;
+      <button class="gbtn gbtn-xl" type="button" data-act="showwinner">${icon('trophy')}Veure el guanyador</button>`;
   } else if (!state.started) {
     main = `<div class="dock-msg">La partida encara no ha començat</div><button class="gbtn gbtn-primary gbtn-xl" type="button" data-act="setup">Preparar la partida</button>`;
   } else if (pending) {
@@ -425,6 +456,7 @@ export async function playFx() {
           confetti(team(e.team).color);
           sfx.good();
           // guanyador: corona, focus i focs artificials (sense moure la càmera)
+          winnerCelebration();
           await S3.winnerFx(e.team);
           break;
         case 'go':
@@ -592,6 +624,7 @@ export function renderAll(muted) {
   renderTop(muted);
   renderTeams();
   renderDock();
+  renderWinnerCard();
 }
 
 export { photoOf, avatarStyle, avatarText };
