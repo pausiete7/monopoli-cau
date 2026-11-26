@@ -1,13 +1,13 @@
 // Connecta el motor amb la pantalla: botons, finestres i teclat.
-import * as G from './engine.js?v=1795637625';
+import * as G from './engine.js?v=1795731218';
 import {
   buildBoard, renderAll, renderCenter, renderTeams, renderSquares, playFx, syncDisplay, isPlaying,
   icon, esc, toast, drawCardFx, setMutedRef, setWinnerHidden, watchIdle, demoFaces,
-} from './board.js?v=1795637625';
-import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795637625';
-import * as S3 from './scene.js?v=1795637625';
-import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795637625';
-import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795637625';
+} from './board.js?v=1795731218';
+import { photoOf, setPhoto, avatarStyle, avatarText, loadFaces, saveFaces, faceList, dealFaces } from './util.js?v=1795731218';
+import * as S3 from './scene.js?v=1795731218';
+import { sfx, toggleMute, isMuted, SOUNDS, preview, getVolume, setVolume, isOff, setOff } from './sound.js?v=1795731218';
+import { EFFECTS, MINIGAMES, GROUPS, TOKENS, deckName } from './data.js?v=1795731218';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -244,6 +244,13 @@ function effectSummary(c) {
     case 'skip': return 'Perd el pròxim torn';
     case 'extra': return 'Tirada extra';
     case 'half': return 'La pròxima tirada avança la meitat';
+    case 'anywhere': return 'Tria qualsevol casella';
+    case 'skipother': return 'Un altre equip perd el torn';
+    case 'moneyeach': {
+      const e = Number(c.each) || 0;
+      const bank = v >= 0 ? `Cobra ${G.money(v)}` : `Paga ${G.money(-v)}`;
+      return e ? `${bank} i ${e >= 0 ? 'cobra' : 'paga'} ${G.money(Math.abs(e))} ${e >= 0 ? 'de' : 'a'} cada equip` : bank;
+    }
     case 'station': return 'Tria una estació';
     case 'perprop': return v >= 0 ? `Cobra ${G.money(v)} per propietat` : `Paga ${G.money(-v)} per propietat`;
     case 'goback': return `Torna a ${G.sq(((v % G.N()) + G.N()) % G.N())?.name || 'la casella'}`;
@@ -267,11 +274,20 @@ function cardModal(q, cardId = null) {
     // T-lleure: un botó per cada estació (si l'equip és a la presó, la carta no el mou)
     foot: c.effect === 'station' && !T.jail
       ? `<span class="muted">A quina estació va?</span><span class="spacer"></span>${G.stations().map((i) => `<button class="btn btn-primary" type="button" data-st="${i}">${esc(G.sq(i).name)}</button>`).join('')}`
-      : `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
+      // qualsevol casella: una llista amb totes i un botó per anar-hi
+      : c.effect === 'anywhere' && !T.jail
+        ? `<span class="muted">A quina casella va?</span><span class="spacer"></span>
+          <select id="anySq" aria-label="Casella">${G.state.config.board.map((s, i) => `<option value="${i}" ${i === T.pos ? 'selected' : ''}>${esc(s.name)}${G.state.owners[i] ? ` (de ${esc(G.team(G.state.owners[i].team).name)})` : s.price && (s.type === 'prop' || s.type === 'station') ? ' (lliure)' : ''}</option>`).join('')}</select>
+          <button class="btn btn-primary" type="button" data-any>Anar-hi</button>`
+        // un altre equip perd el torn: un botó per cada equip
+        : c.effect === 'skipother' && G.activeTeams().length > 1
+          ? `<span class="muted">Quin equip perd el torn?</span><span class="spacer"></span>${G.activeTeams().filter((o) => o !== q.team).map((o) => `<button class="btn btn-primary" type="button" data-st="${o}" style="--tc:${G.team(o).color}">${esc(G.team(o).name)}</button>`).join('')}`
+          : `<button class="btn btn-primary btn-big" type="button" data-a="apply">${c.effect === 'text' ? "D'acord" : 'Aplicar la carta'}</button>`,
     onMount(d) {
       if (cardId !== null) dlg.dataset.cardId = String(cardId);
       setTimeout(() => (good ? sfx.good() : sfx.bad()), 450);
       d.querySelectorAll('[data-st]').forEach((s) => s.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(Number(s.dataset.st)); after(); }));
+      d.querySelector('[data-any]')?.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(Number(d.querySelector('#anySq').value)); after(); });
       const b = d.querySelector('[data-a=apply]') || d.querySelector('[data-st]');
       if (b?.dataset.a) b.addEventListener('click', () => { S3.dropCard(false, cardId); G.applyCard(); after(); });
       b?.focus();

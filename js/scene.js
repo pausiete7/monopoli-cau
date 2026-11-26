@@ -1,8 +1,8 @@
 // Tauler en 3D amb Three.js: tauler, peons, cases, piles de cartes i animacions.
 import * as THREE from '../vendor/three.module.min.js';
-import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795637625';
-import { photoOf, initials, randomFace } from './util.js?v=1795637625';
-import { deckName } from './data.js?v=1795637625';
+import { state, fx as fxQueue, sq, N, team, money, rentFor, rules } from './engine.js?v=1795731218';
+import { photoOf, initials, randomFace } from './util.js?v=1795731218';
+import { deckName } from './data.js?v=1795731218';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -2742,7 +2742,7 @@ function cardIcon(ctx, effect, value, col) {
     ctx.fillText('€', x, y + 2);
   };
   switch (effect) {
-    case 'money': case 'perprop': coin(0, 0, 40); break;
+    case 'money': case 'perprop': case 'moneyeach': coin(0, 0, 40); break;
     case 'each':
       [-38, 0, 38].forEach((x, k) => {
         const y = k === 1 ? -6 : 6;
@@ -2750,7 +2750,7 @@ function cardIcon(ctx, effect, value, col) {
         ctx.beginPath(); ctx.arc(x, y + 22, 20, Math.PI, 0); ctx.fill();
       });
       break;
-    case 'goto': case 'goback': case 'station':
+    case 'goto': case 'goback': case 'station': case 'anywhere':
       ctx.beginPath(); ctx.moveTo(-22, 44); ctx.lineTo(-22, -44); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-18, -42); ctx.lineTo(34, -26); ctx.lineTo(-18, -8); ctx.closePath(); ctx.fill();
       break;
@@ -2773,7 +2773,7 @@ function cardIcon(ctx, effect, value, col) {
       ctx.beginPath(); ctx.moveTo(-26, 40); ctx.lineTo(12, -18); ctx.stroke();
       ctx.save(); ctx.translate(14, -20); ctx.rotate(Math.atan2(-58, 38) + Math.PI / 2); roundRect(ctx, -34, -13, 68, 26, 6); ctx.fill(); ctx.restore();
       break;
-    case 'skip':
+    case 'skip': case 'skipother':
       setFont(ctx, 900, 54, 'normal');
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Z', -14, 10); setFont(ctx, 900, 36, 'normal'); ctx.fillText('z', 22, -18);
@@ -2872,7 +2872,7 @@ export function cardFaceCanvas(deck, card = {}) {
   // què fa la carta, amb color segons si es cobra o es paga
   if (card.foot) {
     const v = Number(card.value) || 0;
-    const tone = ['money', 'each'].includes(card.effect) ? (v >= 0 ? 'good' : 'bad') : card.effect === 'jail' || card.effect === 'skip' || card.effect === 'half' || card.effect === 'repairs' ? 'bad' : card.effect === 'text' ? 'neutral' : 'good';
+    const tone = ['money', 'each', 'moneyeach'].includes(card.effect) ? (v >= 0 ? 'good' : 'bad') : card.effect === 'jail' || card.effect === 'skip' || card.effect === 'half' || card.effect === 'repairs' ? 'bad' : card.effect === 'text' ? 'neutral' : 'good';
     const bg = { good: '#E3F5EA', bad: '#FBE6E4', neutral: '#EEF1FA' }[tone];
     const fg = { good: '#167A3F', bad: '#B22A20', neutral: INK }[tone];
     setFont(ctx, 900, 32, 'normal');

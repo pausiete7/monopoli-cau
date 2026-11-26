@@ -1,5 +1,5 @@
 // Motor del joc: estat, regles i desfer. No toca el DOM.
-import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795637625';
+import { BOARD, CARDS, TEAMS, RULES, GROUPS, MINIGAMES } from './data.js?v=1795731218';
 
 const KEY = 'monopoli-cau-v1';
 const UNDO_KEY = 'monopoli-cau-undo-v1';
@@ -127,6 +127,24 @@ function migrate() {
       }
     });
     state.config.contentV = 6;
+  }
+  // 26/11: carrers, estació i cartes de la Laia (ja no queda cap casella d'exemple)
+  if (state.config.contentV < 7) {
+    const OLD = { 2: 'Magatzem de material', 7: 'Racó del foc', 8: 'Cuina de campaments', 14: 'Castell de Rubí', 21: 'Estació de Sants' };
+    Object.entries(OLD).forEach(([i, old]) => {
+      const s = state.config.board[i];
+      if (s && s.name === old && BOARD[i]) s.name = BOARD[i].name;
+    });
+    const c = state.config.cards;
+    ['good', 'bad'].forEach((d) => {
+      if (c?.[d]?.length === 15 && c[d][14].text === CARDS[d][14].text) {
+        for (let k = 15; k < CARDS[d].length; k++) {
+          c[d].push(clone(CARDS[d][k]));
+          state.decks?.[d]?.splice(Math.floor(Math.random() * (state.decks[d].length + 1)), 0, k);
+        }
+      }
+    });
+    state.config.contentV = 7;
   }
   state.pot = state.pot || 0;
   state.queue = state.queue || [];
@@ -636,6 +654,29 @@ export function applyCard(choice) {
     case 'half':
       T.half++;
       break;
+    case 'anywhere': {
+      if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }
+      const target = Number.isInteger(Number(choice)) && Number(choice) >= 0 && Number(choice) < N() ? Number(choice) : T.pos;
+      if (target !== T.pos) moveTo(t, target, true);
+      land(t, true);
+      break;
+    }
+    case 'skipother': {
+      const others = activeTeams().filter((o) => o !== t);
+      const o = others.includes(Number(choice)) ? Number(choice) : others[0];
+      if (o === undefined) break;
+      team(o).skip++;
+      log(`${T.name} fa que ${name(o)} perdi el pròxim torn.`, 'bad');
+      break;
+    }
+    case 'moneyeach': {
+      if (v >= 0) transfer('bank', t, v, 'carta'); else transfer(t, 'bank', -v, 'carta');
+      const e = Number(c.each) || 0;
+      activeTeams().filter((o) => o !== t).forEach((o) => {
+        if (e >= 0) transfer(o, t, e, 'carta'); else transfer(t, o, -e, 'carta');
+      });
+      break;
+    }
     case 'station': {
       if (T.jail) { log(`${T.name} és a la presó: la carta no el mou.`, 'info'); break; }
       const st = stations();

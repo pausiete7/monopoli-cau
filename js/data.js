@@ -24,26 +24,26 @@ const S = (name) => ({ type: 'station', name, price: 200 });
 export const BOARD = [
   { type: 'go', name: 'Cau de Pios' },
   P('Letrines de campaments', 'marro', 60, [5, 15, 45, 120, 180, 280], 50),
-  P('Magatzem de material', 'marro', 60, [10, 30, 90, 235, 360, 505], 50),
+  P('Forat del menjar de campas', 'marro', 60, [10, 30, 90, 235, 360, 505], 50),
   S('Estació Rubí Centre'),
   P('Carrer de Baden Powell', 'cel', 100, [10, 45, 135, 355, 450, 620], 50),
   P('Catacombes de Maristes', 'cel', 120, [10, 60, 150, 395, 505, 675], 50),
   { type: 'jail', name: 'Presó' },
-  P('Racó del foc', 'rosa', 140, [15, 75, 225, 595, 705, 845], 100),
-  P('Cuina de campaments', 'rosa', 160, [20, 90, 270, 655, 790, 1015], 100),
+  P('Despatx del Valentí', 'rosa', 140, [15, 75, 225, 595, 705, 845], 100),
+  P('Sala Champagnat', 'rosa', 160, [20, 90, 270, 655, 790, 1015], 100),
   S('Aeri de Montserrat'),
   P("Càmping d'avituallament", 'taronja', 180, [25, 105, 300, 725, 845, 1070], 100),
   P("Refugi d'alta muntanya", 'taronja', 200, [25, 120, 330, 790, 900, 1125], 100),
   { type: 'parking', name: 'Pàrquing' },
   P('Parada de la castanyada', 'vermell', 220, [25, 135, 375, 920, 985, 1180], 150),
-  P('Castell de Rubí', 'vermell', 240, [30, 150, 450, 985, 1045, 1240], 150),
+  P('Pedraforca', 'vermell', 240, [30, 150, 450, 985, 1045, 1240], 150),
   S('Estació R1 Ocata'),
   P('Prat de Camprodon', 'groc', 260, [35, 165, 495, 1050, 1100, 1295], 150),
   P('La Carral', 'groc', 280, [40, 180, 540, 1120, 1155, 1350], 150),
   { type: 'gotojail', name: 'Ves a la presó' },
   P('Sala de profes', 'verd', 300, [40, 195, 585, 1180, 1240, 1435], 200),
   P("Cim de la Pica d'Estats", 'verd', 320, [40, 225, 675, 1315, 1350, 1575], 200),
-  S('Estació de Sants'),
+  S('Parada Maristes Sants-Les Corts'),
   P('Canu', 'blau', 350, [55, 265, 750, 1445, 1465, 1690], 200),
   P('Bar Juan', 'blau', 400, [75, 300, 900, 1840, 1915, 2250], 200),
 ];
@@ -62,6 +62,9 @@ export const BOARD = [
 //  perprop (value per cada propietat que té: + cobra / − paga)
 //  goback (value: número de casella; hi va sense cobrar la Sortida)
 //  half   (la pròxima tirada només avança la meitat de caselles, arrodonint amunt)
+//  anywhere  (l'equip tria qualsevol casella i hi va; si passa per la Sortida, cobra)
+//  skipother (l'equip tria un altre equip, que perd el pròxim torn)
+//  moneyeach (value: al banc, + cobra / − paga; i a més «each» amb cada equip, + cobra / − paga)
 //  text   (no fa res sola: ho apliqueu vosaltres)
 export const EFFECTS = {
   money: 'Diners (+ cobra, − paga)',
@@ -77,10 +80,13 @@ export const EFFECTS = {
   perprop: 'Diners per cada propietat (+ cobra, − paga)',
   goback: 'Tornar a una casella sense cobrar',
   half: 'La pròxima tirada avança la meitat',
+  anywhere: 'Anar a qualsevol casella (la tria l\'equip)',
+  skipother: 'Un altre equip perd el torn (el tria l\'equip)',
+  moneyeach: 'Diners al banc i a cada equip',
   text: 'Només text (ho apliqueu a mà)',
 };
 
-// De cada mall: les 5 primeres són d'en Nacho, les 5 següents d'en Pau i les 5 últimes del tercer moni.
+// De cada mall, de 5 en 5: en Nacho, en Pau, el tercer moni i la Laia.
 export const CARDS = {
   good: [
     { text: "Has guanyat la TEP: la resta d'equips et paguen 50.", effect: 'each', value: 50 },
@@ -98,6 +104,11 @@ export const CARDS = {
     { text: "Has trobat una barra de fuet al fons de la motxilla i la vens a preu d'or a la resta de la unitat: guanyes 150.", effect: 'money', value: 150 },
     { text: "Feu una especialitat boníssima i la resta d'equips us ho reconeixen: cobreu 30 de cada equip.", effect: 'each', value: 30 },
     { text: "Has fet un brownie per vendre'l amb les castanyes i els monitors et recompensen amb un val per sortir de la presó.", effect: 'jailfree', value: 0 },
+    { text: "Guanyes el concurs de pastissos del sopar de final de curs: la resta d'equips et paguen 30.", effect: 'each', value: 30 },
+    { text: 'Ets el/la protagonista del musical de pios i ho fas tan bé que reps 150.', effect: 'money', value: 150 },
+    { text: "El/la que t'agrada i tu sortiu a la bústia i us feu un pico: estàs tan content que avances 3 caselles.", effect: 'move', value: 3 },
+    { text: 'El vostre equip aconsegueix canviar un boli per un Lamborghini en un Ciutat Random Express: pots anar a la casella que vulguis i comprar-la si està lliure.', effect: 'anywhere', value: 0 },
+    { text: "Aneu a un sàlting i aprens a fer un backflip en 5 minuts: això et dona tanta aura que pots fer que un altre equip perdi el pròxim torn.", effect: 'skipother', value: 0 },
   ],
   bad: [
     { text: 'Et caus al forat de les letrines: tornes 2 caselles enrere.', effect: 'move', value: -2 },
@@ -115,6 +126,11 @@ export const CARDS = {
     { text: "Et toca portar la farmaciola una estona: a la pròxima tirada avances la meitat de caselles.", effect: 'half', value: 0 },
     { text: 'Ha plogut i la teva llibreta de raids està xopa: pagues 100 per comprar-ne una de nova.', effect: 'money', value: -100 },
     { text: "Et pillen saltant-te els serveis al campament: ves directament a la presó.", effect: 'jail', value: 0 },
+    { text: "A Pasqua no parles absolutament amb ningú d'un altre cau: retrocedeixes 3 caselles.", effect: 'move', value: -3 },
+    { text: "Un castor et repta a una batalla d'aura i la perds desastrosament: has de pagar 200.", effect: 'money', value: -200 },
+    { text: 'Estaves tornant material al cau i sense voler el cremes sencer: pagues 100 per danys físics i 20 a cada equip per danys emocionals.', effect: 'moneyeach', value: -100, each: -20 },
+    { text: 'A la TG us porteu fatal i la Maria Arnaiz us fot bronca: perdeu un torn.', effect: 'skip', value: 0 },
+    { text: "Els teus monis preferits (nosaltres, esperem) et pillen pintant cares a campaments de Nadal i et castiguen: pagues 140 i has de cantar una nadala en públic.", effect: 'money', value: -140 },
   ],
 };
 
